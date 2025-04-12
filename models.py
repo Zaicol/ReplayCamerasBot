@@ -26,6 +26,7 @@ class Videos(Base):
 
     user = relationship('Users', back_populates='videos')
     court = relationship('Court', back_populates='videos')
+    cameras = relationship('Cameras', back_populates='videos')
 
 
 class Court(Base):
@@ -37,3 +38,14 @@ class Court(Base):
     password_expiration_date = Column(DateTime, nullable=False)
     users = relationship('Users', back_populates='court')
     videos = relationship('Videos', back_populates='court')
+
+
+class Cameras(Base):
+    __tablename__ = 'cameras'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    login = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+    court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
+    court = relationship('Court', back_populates='cameras')
