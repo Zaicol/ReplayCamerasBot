@@ -1,0 +1,5 @@
+requests~=2.31.0
+opencv-python~=4.11.0.86
+aiogram~=3.19.0
+SQLAlchemy~=2.0.37
+python-dotenv~=1.0.1
