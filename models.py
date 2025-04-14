@@ -1,6 +1,16 @@
+import os
+
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from dotenv import load_dotenv
+
+# Загрузка переменных окружения
+load_dotenv()
+
+# Конфигурация
+API_TOKEN = os.getenv('API_TOKEN')
+DATABASE_URL = os.getenv('CAMERA_DATABASE_URL')
 
 Base = declarative_base()
 
@@ -26,7 +36,6 @@ class Videos(Base):
 
     user = relationship('Users', back_populates='videos')
     court = relationship('Court', back_populates='videos')
-    cameras = relationship('Cameras', back_populates='videos')
 
 
 class Court(Base):
@@ -38,6 +47,7 @@ class Court(Base):
     password_expiration_date = Column(DateTime, nullable=False)
     users = relationship('Users', back_populates='court')
     videos = relationship('Videos', back_populates='court')
+    cameras = relationship('Cameras', back_populates='court')
 
 
 class Cameras(Base):
@@ -47,5 +57,13 @@ class Cameras(Base):
     url = Column(String, nullable=False)
     login = Column(String, nullable=False)
     password = Column(String, nullable=False)
+    ip = Column(String, nullable=False)
+    port = Column(Integer, nullable=False)
     court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
     court = relationship('Court', back_populates='cameras')
+
+
+# Инициализация SQLAlchemy
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+Base.metadata.create_all(engine)

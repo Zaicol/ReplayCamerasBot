@@ -15,34 +15,15 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from dotenv import load_dotenv
 import threading
-
-# Загрузка переменных окружения
-load_dotenv()
-
-# Конфигурация
-API_TOKEN = os.getenv('API_TOKEN')
-DATABASE_URL = os.getenv('DATABASE_URL')
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-# Инициализация SQLAlchemy
-engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
-Base.metadata.create_all(engine)
 
 # Инициализация бота
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
-
-# RTSP настройки камеры
-CAMERA_IP = "192.168.10.109"
-CAMERA_USER = "admin"
-CAMERA_PASS = "St604433"
-RTSP_PORT = 554
-RTSP_URL = f"rtsp://{CAMERA_USER}:{CAMERA_PASS}@{CAMERA_IP}:{RTSP_PORT}/cam/realmonitor?channel=1&subtype=0"
 
 # Главное меню
 main_menu = ReplyKeyboardMarkup(
@@ -55,17 +36,16 @@ BUFFER_DURATION = 40  # Длительность буфера в секунда�
 FPS = 20  # Частота кадров (примерное значение)
 MAX_FRAMES = BUFFER_DURATION * FPS  # Максимальное количество кадров в буфере
 
-# Циклический буфер
-buffer = deque(maxlen=MAX_FRAMES)
 
 
 def generate_password():
     return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
 
 
-def check_and_set_new_court_password(court: Court):
-    if court.password_expiration_date < datetime.now():
-        with Session() as session:
+def check_and_set_new_court_password(court_input: Court):
+    with Session() as session:
+        court = session.query(Court).filter_by(id=court_input.id).first()
+        if court.password_expiration_date < datetime.now():
             new_password = generate_password()
             court.previous_password = court.current_password
             court.current_password = new_password
@@ -82,10 +62,27 @@ def check_password_and_expiration(user: Users) -> tuple[bool, datetime | None]:
     return False, None
 
 
+def get_courts_keyboard(courts_list: list[Court]):
+
+    buttons = [
+        InlineKeyboardButton(text=court.name, callback_data=f"court_{court.id}")
+        for court in courts_list
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
+    return keyboard
+
+
+def get_back_keyboard():
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Назад", callback_data="back")]])
+    return keyboard
+
+
 # Фоновая задача для записи видео в буфер
-def capture_video():
-    global buffer
-    cap = cv2.VideoCapture(RTSP_URL)
+def capture_video(camera: Cameras, buffer: deque):
+    # RTSP настройки камеры
+    rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
+
+    cap = cv2.VideoCapture(rtsp_url)
     if not cap.isOpened():
         logging.error("Ошибка: Не удалось подключиться к видеопотоку.")
         return
@@ -101,23 +98,15 @@ def capture_video():
         buffer.append(frame)
 
 
-def get_courts_keyboard(courts):
-    keyboard = InlineKeyboardMarkup()
-    for court in courts:
-        # Каждая кнопка имеет callback_data, равное ID корта
-        keyboard.add(InlineKeyboardButton(text=court.name, callback_data=f"court_{court.id}"))
-    return keyboard
+with Session() as session:
+    cameras = session.query(Cameras).all()
 
+buffers = {camera.id: deque(maxlen=MAX_FRAMES) for camera in cameras}
 
-def get_back_keyboard():
-    keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton(text="Назад", callback_data="back"))
-    return keyboard
-
-
-# Запуск захвата видео в отдельном потоке
-capture_thread = threading.Thread(target=capture_video, daemon=True)
-capture_thread.start()
+for camera in cameras:
+    # Запуск захвата видео в отдельном потоке
+    capture_thread = threading.Thread(target=capture_video, args=(camera, buffers[camera.id]), daemon=True)
+    capture_thread.start()
 
 
 # Определение состояний
@@ -242,53 +231,54 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
         await state.set_state(Setup.input_password)
         return
 
-    # Получаем буфер видео
-    temp_video_path = f"temp_video.mp4"
+    if False:
+        # Получаем буфер видео
+        temp_video_path = f"temp_video.mp4"
 
-    # Создаем копию буфера для безопасной итерации
-    buffer_copy = list(buffer)  # Копируем содержимое буфера
+        # Создаем копию буфера для безопасной итерации
+        buffer_copy = list(buffer)  # Копируем содержимое буфера
 
-    if len(buffer_copy) == 0:
-        await message.answer("Буфер пуст. Нечего сохранять.")
-        return
+        if len(buffer_copy) == 0:
+            await message.answer("Буфер пуст. Нечего сохранять.")
+            return
 
-    # Получаем параметры видео из первого кадра
-    frame_width = buffer_copy[0].shape[1]
-    frame_height = buffer_copy[0].shape[0]
+        # Получаем параметры видео из первого кадра
+        frame_width = buffer_copy[0].shape[1]
+        frame_height = buffer_copy[0].shape[0]
 
-    # Записываем видео в файл
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(temp_video_path, fourcc, FPS, (frame_width, frame_height))
+        # Записываем видео в файл
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(temp_video_path, fourcc, FPS, (frame_width, frame_height))
 
-    for frame in buffer_copy:  # Итерируемся по копии буфера
-        out.write(frame)
+        for frame in buffer_copy:  # Итерируемся по копии буфера
+            out.write(frame)
 
-    out.release()
+        out.release()
 
-    # Транскодирование видео в H.264
-    transcoded_video_path = f"transcoded_temp_video.mp4"
-    subprocess.run([
-        "ffmpeg",
-        "-i", temp_video_path,
-        "-c:v", "libx264",  # Кодек H.264
-        "-preset", "fast",
-        transcoded_video_path
-    ])
+        # Транскодирование видео в H.264
+        transcoded_video_path = f"transcoded_temp_video.mp4"
+        subprocess.run([
+            "ffmpeg",
+            "-i", temp_video_path,
+            "-c:v", "libx264",  # Кодек H.264
+            "-preset", "fast",
+            transcoded_video_path
+        ])
 
-    # Отправка видео в Telegram
-    video_file = FSInputFile(transcoded_video_path)
-    sent_message = await bot.send_video(chat_id=message.chat.id, video=video_file)
+        # Отправка видео в Telegram
+        video_file = FSInputFile(transcoded_video_path)
+        sent_message = await bot.send_video(chat_id=message.chat.id, video=video_file)
 
-    # Сохранение метаданных в БД
-    session = Session()
-    video = Videos(
-        video_id=sent_message.video.file_id,
-        timestamp=datetime.now(),
-        user_id=message.from_user.id,
-        court_id=user.selected_court_id
-    )
-    session.add(video)
-    session.commit()
+        # Сохранение метаданных в БД
+        session = Session()
+        video = Videos(
+            video_id=sent_message.video.file_id,
+            timestamp=datetime.now(),
+            user_id=message.from_user.id,
+            court_id=user.selected_court_id
+        )
+        session.add(video)
+        session.commit()
 
     t_left = expiration - datetime.now()  # Оставшееся время действия пароля
     await message.answer(f"Видео успешно сохранено!\n"
@@ -355,4 +345,11 @@ async def main():
 
 
 if __name__ == "__main__":
+    session = Session()
+    courts = session.query(Court).all()
+    if not courts:
+        test_court = Court(name="Тестовый корт", current_password="qwe", previous_password="qwe",
+                           password_expiration_date=datetime.now() - timedelta(days=1))
+        session.add(test_court)
+        session.commit()
     asyncio.run(main())
