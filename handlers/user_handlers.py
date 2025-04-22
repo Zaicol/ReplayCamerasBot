@@ -1,29 +1,46 @@
-import logging
-from datetime import datetime
-
 from aiogram import types, F, Bot
-from aiogram.dispatcher.dispatcher import Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.dispatcher.dispatcher import Dispatcher
+
+from utils.cameras import save_video
+from utils.keyboards import *
+from utils.states import SetupFSM
+from database import *
+from texts import *
 
 from config.config import VERSION
-from database import SessionLocal, get_all, check_and_create_user, get_by_name, get_by_id, \
-    check_password_and_expiration, create_item, Users
-from utils.cameras import save_video
-from utils.keyboards import get_courts_keyboard, get_saverec_keyboard, get_back_keyboard
-from utils.states import SetupFSM
-from texts import *
 
 logger = logging.getLogger(__name__)
 
 
 def register_handlers(dp: Dispatcher, bot: Bot):
+
+    @dp.message(Command("set_id_temp"))
+    async def cmd_set_id(message: types.Message):
+        user_id = message.from_user.id
+        local_session = SessionLocal()
+        check_and_create_user(local_session, user_id)
+
+        # Проверяем, существует ли пользователь в БД
+        user = get_by_id(local_session, 'users', user_id)
+        if not user:
+            # Создаем нового пользователя с уровнем доступа 2 (админ)
+            new_user = Users(id=user_id, access_level=2)
+            local_session.add(new_user)
+        else:
+            # Обновляем уровень доступа до 2 (админ)
+            user.access_level = 2
+
+        local_session.commit()
+        await message.answer(f"Ваш ID: {user_id}\nВы добавлены как администратор (уровень доступа 2).")
+
     @dp.message(lambda message: message.text == "🔙 К выбору корта")
     async def process_back_to_court_button(message: types.Message, state: FSMContext):
         local_session = SessionLocal()
         check_and_create_user(local_session, message.from_user.id)
         await message.answer(
-            "Выберите теннисный корт:",
+            start_text,
             reply_markup=get_courts_keyboard(get_all(SessionLocal(), 'courts'))
         )
         await state.set_state(SetupFSM.select_court)
@@ -33,6 +50,7 @@ def register_handlers(dp: Dispatcher, bot: Bot):
         user_id = message.from_user.id
         local_session = SessionLocal()
         check_and_create_user(local_session, user_id)
+        await check_all_courts_password(local_session)
 
         # Извлекаем ID корта из callback_data
         court_name = message.text
