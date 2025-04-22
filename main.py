@@ -19,9 +19,9 @@ logger = setup_logger()
 
 
 # Регистрация хэндлеров
-start_handler.register_handlers(dp)
-admin_handlers.register_handlers(dp)
 user_handlers.register_handlers(dp, bot)
+admin_handlers.register_handlers(dp)
+start_handler.register_handlers(dp)
 
 
 # Запуск бота

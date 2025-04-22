@@ -26,3 +26,7 @@ def register_handlers(dp: Dispatcher):
             reply_markup=get_courts_keyboard(courts_list)
         )
         await state.set_state(SetupFSM.select_court)
+
+    @dp.message()
+    async def default_handler(message: types.Message, state: FSMContext):
+        await cmd_start(message, state)
