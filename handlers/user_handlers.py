@@ -135,7 +135,7 @@ def register_handlers(dp: Dispatcher, bot: Bot):
             await message.answer("У вас нет прав для сохранения видео.")
             return
 
-        password_check, expiration = check_password_and_expiration(local_session, user)
+        password_check, expiration = await check_password_and_expiration(local_session, user)
         if not password_check:
             await message.answer("Текущий пароль неверен или истёк. Необходимо ввести новый пароль:",
                                  reply_markup=get_back_keyboard())

@@ -55,7 +55,7 @@ def check_and_create_user(local_session: SessionLocal, user_id: int):
     return user
 
 
-def check_and_set_new_court_password(local_session: SessionLocal, court_input: Courts):
+async def check_and_set_new_court_password(local_session: SessionLocal, court_input: Courts):
     court = local_session.query(Courts).filter_by(id=court_input.id).first()
     logger.debug(court.password_expiration_date, court.password_expiration_date < datetime.now())
     if court.password_expiration_date < datetime.now():
@@ -68,8 +68,8 @@ def check_and_set_new_court_password(local_session: SessionLocal, court_input: C
         local_session.refresh(court)
 
 
-def check_password_and_expiration(local_session: SessionLocal, user: Users) -> tuple[bool, datetime | None]:
+async def check_password_and_expiration(local_session: SessionLocal, user: Users) -> tuple[bool, datetime | None]:
     if user.court:
-        check_and_set_new_court_password(local_session, user.court)
+        await check_and_set_new_court_password(local_session, user.court)
         return user.court.current_password == user.current_pasword, user.court.password_expiration_date
     return False, None
