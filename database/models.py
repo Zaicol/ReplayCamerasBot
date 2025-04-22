@@ -1,17 +1,7 @@
-import os
-
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from dotenv import load_dotenv
 
-# Загрузка переменных окружения
-load_dotenv()
-
-# Конфигурация
-API_TOKEN = os.getenv('CAMERA_API_TOKEN')
-DATABASE_URL = os.getenv('CAMERA_DATABASE_URL')
-VERSION = os.getenv('CAMERA_VERSION')
 
 Base = declarative_base()
 
@@ -63,7 +53,9 @@ class Cameras(Base):
     court = relationship('Courts', back_populates='cameras')
 
 
-# Инициализация SQLAlchemy
-engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
-Base.metadata.create_all(engine)
+TABLES = {
+    'users': Users,
+    'videos': Videos,
+    'courts': Courts,
+    'cameras': Cameras
+}
