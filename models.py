@@ -9,8 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Конфигурация
-API_TOKEN = os.getenv('API_TOKEN')
+API_TOKEN = os.getenv('CAMERA_API_TOKEN')
 DATABASE_URL = os.getenv('CAMERA_DATABASE_URL')
+VERSION = os.getenv('CAMERA_VERSION')
 
 Base = declarative_base()
 
@@ -21,7 +22,7 @@ class Users(Base):
     access_level = Column(Integer, default=0)  # 0 - no access, 1 - view, 2 - save and view
     current_pasword = Column(String, nullable=True)
     selected_court_id = Column(Integer, ForeignKey('courts.id'), nullable=True)
-    court = relationship('Court', back_populates='users')
+    court = relationship('Courts', back_populates='users')
     videos = relationship('Videos', back_populates='user')
 
 
@@ -35,13 +36,13 @@ class Videos(Base):
     court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
 
     user = relationship('Users', back_populates='videos')
-    court = relationship('Court', back_populates='videos')
+    court = relationship('Courts', back_populates='videos')
 
 
-class Court(Base):
+class Courts(Base):
     __tablename__ = 'courts'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False, unique=True)
     current_password = Column(String, nullable=False)
     previous_password = Column(String, nullable=False)
     password_expiration_date = Column(DateTime, nullable=False)
@@ -54,13 +55,12 @@ class Cameras(Base):
     __tablename__ = 'cameras'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
-    url = Column(String, nullable=False)
     login = Column(String, nullable=False)
     password = Column(String, nullable=False)
     ip = Column(String, nullable=False)
     port = Column(Integer, nullable=False)
     court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
-    court = relationship('Court', back_populates='cameras')
+    court = relationship('Courts', back_populates='cameras')
 
 
 # Инициализация SQLAlchemy
