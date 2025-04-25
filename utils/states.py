@@ -5,6 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 class SetupFSM(StatesGroup):
     select_court = State()
     input_password = State()
+    save_video = State()
 
 
 class AddCourtFSM(StatesGroup):
