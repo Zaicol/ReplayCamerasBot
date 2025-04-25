@@ -1,18 +1,10 @@
 import asyncio
-import logging
 from datetime import datetime, timedelta
-from config.config import API_TOKEN
+from config.config import bot, dp
 from database import SessionLocal
-from aiogram import Bot, Dispatcher
 from utils import setup_logger
 from utils.keyboards import *
 from handlers import start_handler, user_handlers, admin_handlers
-
-# Настройка логирования
-
-# Инициализация бота
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
 
 # Настройка логгера
 logger = setup_logger()
@@ -20,8 +12,8 @@ logger = setup_logger()
 
 # Регистрация хэндлеров
 dp.include_router(admin_handlers.admin_router)
-user_handlers.register_handlers(dp, bot)
-start_handler.register_handlers(dp)
+dp.include_router(user_handlers.user_router)
+dp.include_router(start_handler.start_router)
 
 
 # Запуск бота
