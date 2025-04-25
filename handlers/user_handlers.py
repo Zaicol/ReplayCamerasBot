@@ -1,6 +1,7 @@
 from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from icecream import ic
 
 from utils.cameras import save_video
 from utils.keyboards import *
@@ -71,7 +72,7 @@ async def process_court_selection(message: types.Message, state: FSMContext):
     if user.selected_court_id == court.id and user.current_pasword == user.court.current_password:
         await message.answer(
             f"Вы выбрали теннисный корт: {court.name}\n",
-            reply_markup=get_saverec_keyboard()
+            reply_markup=get_saverec_short_keyboard()
         )
         await state.set_state(SetupFSM.save_video)
 
@@ -122,7 +123,7 @@ async def process_input_password(message: types.Message, state: FSMContext):
         local_session.commit()
         await message.answer(
             right_password_text,
-            reply_markup=get_saverec_keyboard()
+            reply_markup=get_saverec_short_keyboard()
         )
         await state.set_state(SetupFSM.save_video)
     else:
@@ -148,7 +149,7 @@ async def save_and_send_video(user: Users, message: types.Message):
 
 # Сохранение видео
 @user_router.message(Command("saverec"))
-@user_router.message(lambda message: message.text == save_video_text, SetupFSM.save_video)
+@user_router.message(lambda message: message.text in (save_video_text, yes_text, no_text), SetupFSM.save_video)
 async def cmd_saverec(message: types.Message, state: FSMContext):
     local_session = SessionLocal()
     check_and_create_user(local_session, message.from_user.id)
@@ -156,6 +157,24 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
 
     if not user or user.access_level < 1:
         await message.answer("У вас нет прав для сохранения видео.")
+        return
+
+    if message.text == no_text:
+        await message.answer("Хорошо, мы не будем публиковать видео")
+        return
+
+    if message.text == yes_text:
+        last_video = await get_last_video(local_session, message.from_user.id)
+        ic(last_video)
+        if last_video is None:
+            await message.answer(error_text)
+            return
+
+        if not await make_video_public(local_session, last_video):
+            await message.answer(error_text)
+            return
+
+        await message.answer(public_text)
         return
 
     password_check, expiration = await check_password_and_expiration(local_session, user)
@@ -167,13 +186,21 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
 
     if VERSION != "test":
         await save_and_send_video(user, message)
+    else:
+        create_item(
+            SessionLocal(), 'videos',
+            video_id="0",
+            timestamp=datetime.now(),
+            user_id=message.from_user.id,
+            court_id=user.selected_court_id
+        )
 
     t_left = expiration - datetime.now()  # Оставшееся время действия пароля
     await message.answer(f"Видео успешно сохранено!\n"
                          f"До конца действия пароля осталось: "
                          f"{t_left.seconds // 60 // 60} ч. "
                          f"{t_left.seconds // 60 % 60} мин. {t_left.seconds % 60} с.",
-                         reply_markup=get_saverec_keyboard())
+                         reply_markup=get_saverec_full_keyboard())
 
 
 # Показать список видео

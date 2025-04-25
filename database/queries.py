@@ -1,5 +1,8 @@
 import logging
 from datetime import datetime, timedelta
+
+from icecream import ic
+
 from database import SessionLocal
 from database.models import *
 from utils import generate_password
@@ -80,3 +83,25 @@ async def check_password_and_expiration(local_session: SessionLocal, user: Users
         password, expiration_date = await check_and_set_court_password(local_session, user.court)
         return password == user.current_pasword, expiration_date
     return False, None
+
+
+async def get_last_video(local_session: SessionLocal, user_id: int) -> Videos | None:
+
+    user = local_session.query(Users).filter_by(id=user_id).first()
+    ic(user)
+    if not user:
+        return None
+
+    video = local_session.query(Videos).filter_by(user_id=user.id).order_by(Videos.timestamp.desc()).first()
+    ic(video)
+    if not video:
+        return None
+
+    return video
+
+
+async def make_video_public(local_session: SessionLocal, video) -> bool:
+
+    video.public = True
+    local_session.commit()
+    return True

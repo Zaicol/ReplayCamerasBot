@@ -4,16 +4,17 @@ from config.config import bot, dp
 from database import SessionLocal
 from utils import setup_logger
 from utils.keyboards import *
-from handlers import start_handler, user_handlers, admin_handlers
+from handlers import start_handler, user_handlers, admin_handlers, default_handler
 
 # Настройка логгера
 logger = setup_logger()
 
 
 # Регистрация хэндлеров
+dp.include_router(start_handler.start_router)
 dp.include_router(admin_handlers.admin_router)
 dp.include_router(user_handlers.user_router)
-dp.include_router(start_handler.start_router)
+dp.include_router(default_handler.default_router)
 
 
 # Запуск бота

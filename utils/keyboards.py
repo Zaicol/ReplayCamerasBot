@@ -1,7 +1,7 @@
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 from database.models import Courts
-from utils.texts import save_video_text, back_text
+from utils.texts import *
 
 
 def get_courts_keyboard(courts_list: list[Courts]):
@@ -18,9 +18,19 @@ def get_back_keyboard():
     return keyboard
 
 
-def get_saverec_keyboard():
+def get_saverec_short_keyboard():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text=save_video_text),
                    KeyboardButton(text=back_text)]],
+        resize_keyboard=True)
+    return keyboard
+
+
+def get_saverec_full_keyboard():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=save_video_text),
+                   KeyboardButton(text=back_text)],
+                  [KeyboardButton(text=yes_text),
+                   KeyboardButton(text=no_text)]],
         resize_keyboard=True)
     return keyboard

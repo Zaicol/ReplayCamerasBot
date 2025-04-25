@@ -26,8 +26,3 @@ async def cmd_start(message: types.Message, state: FSMContext):
         reply_markup=get_courts_keyboard(courts_list)
     )
     await state.set_state(SetupFSM.select_court)
-
-
-@start_router.message()
-async def default_handler(message: types.Message, state: FSMContext):
-    await cmd_start(message, state)

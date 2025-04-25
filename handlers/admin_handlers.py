@@ -132,6 +132,7 @@ async def process_input_court_id(message: types.Message):
 
 
 @admin_router.message(Command("show_courts"))
+@admin_router.message(Command("show_courts"), SetupFSM.select_court)
 async def cmd_show_courts(message: types.Message):
     await send_courts_list(message)
 
