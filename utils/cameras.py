@@ -6,8 +6,11 @@ import logging
 import threading
 from collections import deque
 
+import numpy as np
 from aiogram import types
 from aiogram.types import FSInputFile
+
+from config.config import VERSION
 from database import SessionLocal, get_all
 from database.models import Cameras, Users
 
@@ -52,45 +55,57 @@ for camera in cameras:
 
 
 async def save_video(user: Users, message: types.Message):
-    camera = user.court.cameras[0]
-    buffer_copy = list(buffers[camera.id])  # Копируем буфер
+    if VERSION == "test":
+        frame_height, frame_width = 108, 192
+        buffer_copy = [np.random.randint(0, 256, (frame_height, frame_width, 3), dtype=np.uint8) for _ in range(MAX_FRAMES)]
+        camera_id = -1
+    else:
+        camera_id = user.court.cameras[0].id
+        buffer_copy = list(buffers[camera_id])  # Копируем буфер
 
     if len(buffer_copy) == 0:
         await message.answer("Буфер пуст. Нечего сохранять.")
         return
 
-    # Получаем параметры видео
-    frame_height, frame_width = buffer_copy[0].shape[:2]
+    # Параметры видео
+    frame = buffer_copy[0]
+    height, width, _ = frame.shape
+    fps = FPS  # Убедитесь, что FPS определён
 
-    # Пути
-    output_path = f"temp_video_camera_{camera.id}_h264.mp4"
+    output_path = f"transcoded_temp_video_camera_{camera_id}.mp4"
 
-    async def encode_video():
-        process = subprocess.Popen([
-            "ffmpeg",
-            "-y",
-            "-f", "rawvideo",
-            "-vcodec", "rawvideo",
-            "-pix_fmt", "bgr24",
-            "-s", f"{frame_width}x{frame_height}",
-            "-r", str(FPS),
-            "-i", "-",
-            "-an",
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-pix_fmt", "yuv420p",
-            output_path
-        ], stdin=subprocess.PIPE)
+    # Команда FFmpeg для записи raw кадров в h264
+    command = [
+        "ffmpeg",
+        "-y",  # Перезаписывать файл
+        "-f", "rawvideo",  # Входной формат — raw video
+        "-pix_fmt", "bgr24",  # Формат пикселей (OpenCV использует BGR)
+        "-s", f"{width}x{height}",  # Размер кадра
+        "-r", str(fps),  # FPS
+        "-i", "-",  # Ввод из stdin
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-pix_fmt", "yuv420p",  # Совместимость с проигрывателями
+        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",  # Избегаем ошибок нечетных размеров
+        "-f", "mp4",
+        output_path
+    ]
 
-        for frame in buffer_copy:
-            process.stdin.write(frame.tobytes())
+    # Запускаем FFmpeg как подпроцесс
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
 
-        process.stdin.close()
-        process.wait()
+    # Отправляем кадры в stdin FFmpeg
+    for frame in buffer_copy:
+        process.stdin.write(frame.tobytes())
 
-    # Выполняем в отдельном потоке
-    await asyncio.to_thread(encode_video)
+    # Завершаем запись
+    process.stdin.close()
+    await process.wait()
 
-    # Отправка
+    # Отправляем видео
     video_file = FSInputFile(output_path)
     return video_file

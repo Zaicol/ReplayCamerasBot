@@ -5,3 +5,4 @@ SQLAlchemy~=2.0.37
 python-dotenv~=1.0.1
 alembic~=1.14.1
 icecream~=2.1.4
+numpy~=2.0.2

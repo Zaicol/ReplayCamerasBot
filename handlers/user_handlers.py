@@ -184,16 +184,7 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
         await state.set_state(SetupFSM.input_password)
         return
 
-    if VERSION != "test":
-        await save_and_send_video(user, message)
-    else:
-        create_item(
-            SessionLocal(), 'videos',
-            video_id="0",
-            timestamp=datetime.now(),
-            user_id=message.from_user.id,
-            court_id=user.selected_court_id
-        )
+    await save_and_send_video(user, message)
 
     t_left = expiration - datetime.now()  # Оставшееся время действия пароля
     await message.answer(f"Видео успешно сохранено!\n"
