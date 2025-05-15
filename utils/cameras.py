@@ -26,11 +26,10 @@ logger.info(f"Максимальное количество кадров в бу
 # Фоновая задача для записи видео в буфер
 def capture_video(camera: Cameras, buffer: deque):
     # RTSP настройки камеры
-    rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
+    rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=1"
+    logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
     cap = cv2.VideoCapture(rtsp_url)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     if not cap.isOpened():
         logging.error("Ошибка: Не удалось подключиться к видеопотоку.")
         return
