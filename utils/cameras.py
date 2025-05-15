@@ -26,7 +26,7 @@ logger.info(f"Максимальное количество кадров в бу
 # Фоновая задача для записи видео в буфер
 def capture_video(camera: Cameras, buffer: deque):
     # RTSP настройки камеры
-    rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=1"
+    rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
     cap = cv2.VideoCapture(rtsp_url)
@@ -42,7 +42,8 @@ def capture_video(camera: Cameras, buffer: deque):
             continue
 
         # Добавляем кадр в буфер
-        buffer.append(frame)
+        resized = cv2.resize(frame, (1280, 720))
+        buffer.append(resized)
 
 
 cameras: list[Cameras] = get_all(SessionLocal(), 'cameras')
@@ -56,10 +57,26 @@ for camera in cameras:
     logger.info(f"Запущен поток захвата видео для камеры {camera.name}")
 
 
+def load_video_to_buffer():
+    cap = cv2.VideoCapture("temp_video_camera_1.mp4")
+    if not cap.isOpened():
+        raise IOError(f"Не удалось открыть видеофайл: temp_video_camera_1.mp4")
+
+    buffer = []
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        buffer.append(frame)
+
+    cap.release()
+    return buffer
+
+
 async def save_video(user: Users, message: types.Message):
     if VERSION == "test":
-        frame_height, frame_width = 108, 192
-        buffer_copy = [np.random.randint(0, 256, (frame_height, frame_width, 3), dtype=np.uint8) for _ in range(MAX_FRAMES)]
+        buffer_copy = load_video_to_buffer()
         camera_id = -1
     else:
         camera_id = user.court.cameras[0].id
