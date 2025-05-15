@@ -105,7 +105,6 @@ async def save_video(user: Users, message: types.Message):
         "-c:v", "libx264",
         "-preset", "fast",
         "-pix_fmt", "yuv420p",  # Совместимость с проигрывателями
-        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",  # Избегаем ошибок нечетных размеров
         "-f", "mp4",
         output_path
     ]
