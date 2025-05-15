@@ -94,3 +94,5 @@ async def save_video(user: Users, message: types.Message):
 
     # Отправка видео в Telegram
     video_file = FSInputFile(transcoded_video_path)
+
+    return video_file
