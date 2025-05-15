@@ -1,3 +1,5 @@
+import os
+
 from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -145,6 +147,12 @@ async def save_and_send_video(user: Users, message: types.Message):
         user_id=message.from_user.id,
         court_id=user.selected_court_id
     )
+
+    # Удаление видеофайла с диска
+    try:
+        os.remove(video_file.path)
+    except Exception as e:
+        logging.error(f"Ошибка при удалении файла: {e}")
 
 
 # Сохранение видео

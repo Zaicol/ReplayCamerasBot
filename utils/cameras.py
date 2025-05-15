@@ -7,7 +7,6 @@ import logging
 import threading
 from collections import deque
 
-import numpy as np
 from aiogram import types
 from aiogram.types import FSInputFile
 
@@ -91,7 +90,7 @@ async def save_video(user: Users, message: types.Message):
     height, width, _ = frame.shape
     fps = FPS  # Убедитесь, что FPS определён
 
-    output_path = f"transcoded_temp_video_camera_{camera_id}.mp4"
+    output_path = f"video_camera_{camera_id}_user_{user.id}.mp4"
 
     # Команда FFmpeg для записи raw кадров в h264
     command = [
