@@ -1,5 +1,6 @@
 import asyncio
 import subprocess
+import sys
 from time import sleep
 import cv2
 import logging
@@ -28,6 +29,8 @@ def capture_video(camera: Cameras, buffer: deque):
     rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
 
     cap = cv2.VideoCapture(rtsp_url)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     if not cap.isOpened():
         logging.error("Ошибка: Не удалось подключиться к видеопотоку.")
         return
@@ -95,8 +98,19 @@ async def save_video(user: Users, message: types.Message):
     process = await asyncio.create_subprocess_exec(
         *command,
         stdin=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE
     )
+
+    async def read_stream(stream):
+        while not stream.at_eof():
+            line = await stream.readline()
+            if line:
+                sys.stdout.write(line.decode(errors='ignore'))
+                sys.stdout.flush()
+
+    # Читаем вывод ffmpeg в реальном времени
+    log_task = asyncio.create_task(read_stream(process.stderr))
 
     # Отправляем кадры в stdin FFmpeg
     for frame in buffer_copy:
@@ -104,7 +118,9 @@ async def save_video(user: Users, message: types.Message):
 
     # Завершаем запись
     process.stdin.close()
+    await process.stdin.wait_closed()
     await process.wait()
+    await log_task
 
     # Отправляем видео
     video_file = FSInputFile(output_path)
