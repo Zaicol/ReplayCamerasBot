@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 from time import sleep
 import cv2
 import logging
@@ -52,47 +53,44 @@ for camera in cameras:
 
 async def save_video(user: Users, message: types.Message):
     camera = user.court.cameras[0]
-    # Получаем буфер видео
-    temp_video_path = f"temp_video_camera_{camera.id}.mp4"
-
-    # Создаем копию буфера для безопасной итерации
-    buffer_copy = list(buffers[camera.id])  # Копируем содержимое буфера
+    buffer_copy = list(buffers[camera.id])  # Копируем буфер
 
     if len(buffer_copy) == 0:
         await message.answer("Буфер пуст. Нечего сохранять.")
         return
 
-    # Получаем параметры видео из первого кадра
-    frame_width = buffer_copy[0].shape[1]
-    frame_height = buffer_copy[0].shape[0]
+    # Получаем параметры видео
+    frame_height, frame_width = buffer_copy[0].shape[:2]
 
-    def write_video():
-        # Создаем VideoWriter
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(temp_video_path, fourcc, FPS, (frame_width, frame_height))
+    # Пути
+    output_path = f"temp_video_camera_{camera.id}_h264.mp4"
 
-        # Записываем кадры
+    async def encode_video():
+        process = subprocess.Popen([
+            "ffmpeg",
+            "-y",
+            "-f", "rawvideo",
+            "-vcodec", "rawvideo",
+            "-pix_fmt", "bgr24",
+            "-s", f"{frame_width}x{frame_height}",
+            "-r", str(FPS),
+            "-i", "-",
+            "-an",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-pix_fmt", "yuv420p",
+            output_path
+        ], stdin=subprocess.PIPE)
+
         for frame in buffer_copy:
-            out.write(frame)
+            process.stdin.write(frame.tobytes())
 
-        # Освобождаем ресурсы
-        out.release()
+        process.stdin.close()
+        process.wait()
 
-    # Выполняем запись видео в отдельном потоке
-    await asyncio.to_thread(write_video)
+    # Выполняем в отдельном потоке
+    await asyncio.to_thread(encode_video)
 
-    # Транскодирование видео в H.264
-    transcoded_video_path = f"transcoded_temp_video.mp4"
-    process = await asyncio.create_subprocess_exec(
-        "ffmpeg",
-        "-i", temp_video_path,
-        "-c:v", "libx264",  # Кодек H.264
-        "-preset", "fast",
-        transcoded_video_path
-    )
-    await process.communicate()
-
-    # Отправка видео в Telegram
-    video_file = FSInputFile(transcoded_video_path)
-
+    # Отправка
+    video_file = FSInputFile(output_path)
     return video_file
