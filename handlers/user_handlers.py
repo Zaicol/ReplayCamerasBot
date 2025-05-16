@@ -122,6 +122,10 @@ async def save_and_send_video(user: Users, message: types.Message):
     await message.answer(saving_video_text)
     video_file = await save_video(user, message)
 
+    if video_file is None:
+        await message.answer(error_text)
+        return
+
     sent_message = await bot.send_video(chat_id=message.chat.id, video=video_file)
 
     async with AsyncSessionLocal() as session:

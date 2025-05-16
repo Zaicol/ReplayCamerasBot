@@ -96,34 +96,42 @@ async def save_video(user: Users, message: types.Message):
     # Запускаем FFmpeg как подпроцесс
     process = await asyncio.create_subprocess_exec(
         *command,
-        stdin=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
     )
 
     async def read_stream(stream):
         while not stream.at_eof():
             line = await stream.readline()
             if line:
-                sys.stdout.write(line.decode(errors='ignore'))
-                sys.stdout.flush()
+                print(line.decode(errors="ignore").strip())
 
-    # Читаем вывод ffmpeg в реальном времени
     log_task = asyncio.create_task(read_stream(process.stderr))
 
-    # Отправляем кадры в stdin FFmpeg
-    for frame in buffer_copy:
-        process.stdin.write(frame.tobytes())
-        await process.stdin.drain()
+    try:
+        for frame in buffer_copy:
+            process.stdin.write(frame.tobytes())
+            await process.stdin.drain()
+    except (BrokenPipeError, ConnectionResetError) as e:
+        await message.answer("Ошибка при записи видео. FFmpeg закрыл соединение.")
+        print(f"Write error: {e}")
+        return
 
-    # Завершаем запись
     process.stdin.close()
-    await process.stdin.wait_closed()
+    try:
+        await process.stdin.wait_closed()
+    except Exception as e:
+        print(f"stdin.wait_closed() failed: {e}")
+
     return_code = await process.wait()
+    await log_task
+
     if return_code != 0:
         error_output = await process.stderr.read()
-        logger.error("FFmpeg error:", error_output.decode())
-    await log_task
+        print("FFmpeg error output:\n", error_output.decode(errors="ignore"))
+        await message.answer("Произошла ошибка при сохранении видео.")
+        return
 
     # Отправляем видео
     video_file = FSInputFile(output_path)
