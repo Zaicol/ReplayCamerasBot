@@ -2,8 +2,9 @@ import logging
 from datetime import datetime, timedelta
 
 from icecream import ic
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import SessionLocal
 from database.models import *
 from utils import generate_password
 
@@ -17,91 +18,128 @@ def get_model(table: str):
     return model
 
 
-def get_all(session, table: str):
-    return session.query(get_model(table)).all()
+async def get_all(session: AsyncSession, table: str):
+    model = get_model(table)
+    result = await session.execute(select(model))
+    return result.scalars().all()
 
 
-def get_by_id(session, table: str, record_id: int):
-    return session.query(get_model(table)).filter_by(id=record_id).first()
+async def get_by_id(session: AsyncSession, table: str, record_id: int):
+    model = get_model(table)
+    result = await session.execute(
+        select(model).where(model.id == record_id)
+    )
+    return result.scalars().first()
 
 
-def get_by_name(session, table: str, name: str):
-    return session.query(get_model(table)).filter_by(name=name).first()
+async def get_by_name(session: AsyncSession, table: str, name: str):
+    model = get_model(table)
+    result = await session.execute(
+        select(model).where(model.name == name)
+    )
+    return result.scalars().first()
 
 
-def create_item(local_session: SessionLocal, table: str, **kwargs):
+# create_item
+async def create_item(local_session: AsyncSession, table: str, **kwargs):
     model = get_model(table)
     item = model(**kwargs)
     local_session.add(item)
-    local_session.commit()
-    local_session.refresh(item)
+    await local_session.commit()
+    await local_session.refresh(item)
     return item
 
 
-def delete_item(local_session: SessionLocal, table: str, record_id: int):
+# delete_item
+async def delete_item(local_session: AsyncSession, table: str, record_id: int):
     model = get_model(table)
-    item = local_session.query(model).filter_by(id=record_id).first()
+    result = await local_session.execute(
+        select(model).where(model.id == record_id)
+    )
+    item = result.scalars().first()
     if not item:
         return False
-    local_session.delete(item)
-    local_session.commit()
+    await local_session.delete(item)
+    await local_session.commit()
     return True
 
 
-def check_and_create_user(local_session: SessionLocal, user_id: int):
-    user = local_session.query(Users).filter_by(id=user_id).first()
+# check_and_create_user
+async def check_and_create_user(local_session: AsyncSession, user_id: int, access_level: int = 1):
+    result = await local_session.execute(
+        select(Users).where(Users.id == user_id)
+    )
+    user = result.scalars().first()
     if not user:
-        user = Users(id=user_id, access_level=2)
+        user = Users(id=user_id, access_level=access_level)
         local_session.add(user)
-        local_session.commit()
-        local_session.refresh(user)
+        await local_session.commit()
+        await local_session.refresh(user)
+        logger.warn(f"Пользователь {user_id} создан c привилегиями {access_level}. Текущий уровень у юзера: {user.access_level}")
     return user
 
 
-async def check_and_set_court_password(local_session: SessionLocal, court_input: Courts):
-    court = local_session.query(Courts).filter_by(id=court_input.id).first()
+# check_and_set_court_password
+async def check_and_set_court_password(local_session: AsyncSession, court_input: Courts):
+    result = await local_session.execute(
+        select(Courts).where(Courts.id == court_input.id)
+    )
+    court = result.scalars().first()
+    if not court:
+        return None, None
+
     logger.debug(court.password_expiration_date, court.password_expiration_date < datetime.now())
+
     if court.password_expiration_date < datetime.now():
         new_password = generate_password()
         court.previous_password = court.current_password
         court.current_password = new_password
-        # TODO: настроить время
         court.password_expiration_date = datetime.now() + timedelta(days=1)
-        local_session.commit()
-        local_session.refresh(court)
+        await local_session.commit()
+        await local_session.refresh(court)
+
     return court.current_password, court.password_expiration_date
 
 
-async def check_all_courts_password(local_session: SessionLocal):
-    courts = local_session.query(Courts).all()
+# check_all_courts_password
+async def check_all_courts_password(local_session: AsyncSession):
+    result = await local_session.execute(select(Courts))
+    courts = result.scalars().all()
     for court in courts:
         await check_and_set_court_password(local_session, court)
 
 
-async def check_password_and_expiration(local_session: SessionLocal, user: Users) -> tuple[bool, datetime | None]:
+# check_password_and_expiration
+async def check_password_and_expiration(local_session: AsyncSession, user: Users) -> tuple[bool, datetime | None]:
     if user.court:
         password, expiration_date = await check_and_set_court_password(local_session, user.court)
         return password == user.current_pasword, expiration_date
     return False, None
 
 
-async def get_last_video(local_session: SessionLocal, user_id: int) -> Videos | None:
-
-    user = local_session.query(Users).filter_by(id=user_id).first()
+# get_last_video
+async def get_last_video(local_session: AsyncSession, user_id: int) -> Videos | None:
+    result = await local_session.execute(
+        select(Users).where(Users.id == user_id)
+    )
+    user = result.scalars().first()
     ic(user)
     if not user:
         return None
 
-    video = local_session.query(Videos).filter_by(user_id=user.id).order_by(Videos.timestamp.desc()).first()
+    result = await local_session.execute(
+        select(Videos)
+        .where(Videos.user_id == user.id)
+        .order_by(Videos.timestamp.desc())
+        .limit(1)
+    )
+    video = result.scalars().first()
     ic(video)
-    if not video:
-        return None
-
     return video
 
 
-async def make_video_public(local_session: SessionLocal, video) -> bool:
-
+# make_video_public
+async def make_video_public(local_session: AsyncSession, video) -> bool:
     video.public = True
-    local_session.commit()
+    await local_session.commit()
     return True

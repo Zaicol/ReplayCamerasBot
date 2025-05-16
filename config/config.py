@@ -10,6 +10,11 @@ load_dotenv()
 API_TOKEN = os.getenv('CAMERA_API_TOKEN')
 DATABASE_URL = os.getenv('CAMERA_DATABASE_URL')
 VERSION = os.getenv('CAMERA_VERSION')
+BUFFER_DURATION = int(os.getenv('CAMERA_BUFFER_DURATION', 40))
+FPS = int(os.getenv('CAMERA_FPS', 25))
+MAX_FRAMES = BUFFER_DURATION * FPS
+
+buffers = {}
 
 # Инициализация бота
 bot = Bot(token=API_TOKEN)

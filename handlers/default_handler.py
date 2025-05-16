@@ -4,6 +4,7 @@ from handlers.start_handler import cmd_start
 
 default_router = Router()
 
+
 @default_router.message()
 async def default_handler(message: types.Message, state: FSMContext):
     await cmd_start(message, state)

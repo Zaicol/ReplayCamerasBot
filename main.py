@@ -1,10 +1,11 @@
 import asyncio
-from datetime import datetime, timedelta
-from config.config import bot, dp
-from database import SessionLocal
+import threading
+from collections import deque
+from config.config import bot, dp, MAX_FRAMES, buffers
+from database import AsyncSessionLocal, init_models, engine, Cameras, get_all
 from utils import setup_logger
-from utils.keyboards import *
 from handlers import start_handler, user_handlers, admin_handlers, default_handler
+from utils.cameras import capture_video
 
 # Настройка логгера
 logger = setup_logger()
@@ -19,17 +20,21 @@ dp.include_router(default_handler.default_router)
 
 # Запуск бота
 async def main():
+    await init_models(engine)
+    async with AsyncSessionLocal() as session:
+        cameras: list[Cameras] = await get_all(session, 'cameras')
+
+    buffers.update({camera.id: deque(maxlen=MAX_FRAMES) for camera in cameras})
+
+    for camera in cameras:
+        # Запуск захвата видео в отдельном потоке
+        capture_thread = threading.Thread(target=capture_video, args=(camera, buffers[camera.id]), daemon=True)
+        capture_thread.start()
+        logger.info(f"Запущен поток захвата видео для камеры {camera.name}")
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    with SessionLocal() as start_session:
-        courts = start_session.query(Courts).all()
-        if not courts:
-            test_court = Courts(name="Тестовый корт", current_password="qwe", previous_password="qwe",
-                                password_expiration_date=datetime.now() - timedelta(days=1))
-            start_session.add(test_court)
-            start_session.commit()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import relationship
 
 
 Base = declarative_base()
@@ -12,8 +12,8 @@ class Users(Base):
     access_level = Column(Integer, default=0)  # 0 - no access, 1 - view, 2 - save and view
     current_pasword = Column(String, nullable=True)
     selected_court_id = Column(Integer, ForeignKey('courts.id'), nullable=True)
-    court = relationship('Courts', back_populates='users')
-    videos = relationship('Videos', back_populates='user')
+    court = relationship('Courts', back_populates='users', lazy="selectin")
+    videos = relationship('Videos', back_populates='user', lazy="selectin")
 
 
 class Videos(Base):
@@ -26,8 +26,8 @@ class Videos(Base):
     court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
     public = Column(Boolean, nullable=False, default=False)
 
-    user = relationship('Users', back_populates='videos')
-    court = relationship('Courts', back_populates='videos')
+    user = relationship('Users', back_populates='videos', lazy="selectin")
+    court = relationship('Courts', back_populates='videos', lazy="selectin")
 
 
 class Courts(Base):
@@ -37,9 +37,9 @@ class Courts(Base):
     current_password = Column(String, nullable=False)
     previous_password = Column(String, nullable=False)
     password_expiration_date = Column(DateTime, nullable=False)
-    users = relationship('Users', back_populates='court')
-    videos = relationship('Videos', back_populates='court')
-    cameras = relationship('Cameras', back_populates='court')
+    users = relationship('Users', back_populates='court', lazy="selectin")
+    videos = relationship('Videos', back_populates='court', lazy="selectin")
+    cameras = relationship('Cameras', back_populates='court', lazy="selectin")
 
 
 class Cameras(Base):
@@ -51,7 +51,7 @@ class Cameras(Base):
     ip = Column(String, nullable=False)
     port = Column(Integer, nullable=False)
     court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
-    court = relationship('Courts', back_populates='cameras')
+    court = relationship('Courts', back_populates='cameras', lazy="selectin")
 
 
 TABLES = {

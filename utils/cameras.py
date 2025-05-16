@@ -10,15 +10,11 @@ from collections import deque
 from aiogram import types
 from aiogram.types import FSInputFile
 
-from config.config import VERSION
-from database import SessionLocal, get_all
+from config.config import VERSION, FPS, buffers, MAX_FRAMES
 from database.models import Cameras, Users
 
 logger = logging.getLogger(__name__)
 
-BUFFER_DURATION = 40  # Длительность буфера в секундах
-FPS = 20  # Частота кадров (примерное значение)
-MAX_FRAMES = BUFFER_DURATION * FPS  # Максимальное количество кадров в буфере
 logger.info(f"Максимальное количество кадров в буфере: {MAX_FRAMES}")
 
 
@@ -43,17 +39,6 @@ def capture_video(camera: Cameras, buffer: deque):
         # Добавляем кадр в буфер
         resized = cv2.resize(frame, (1280, 720))
         buffer.append(resized)
-
-
-cameras: list[Cameras] = get_all(SessionLocal(), 'cameras')
-
-buffers = {camera.id: deque(maxlen=MAX_FRAMES) for camera in cameras}
-
-for camera in cameras:
-    # Запуск захвата видео в отдельном потоке
-    capture_thread = threading.Thread(target=capture_video, args=(camera, buffers[camera.id]), daemon=True)
-    capture_thread.start()
-    logger.info(f"Запущен поток захвата видео для камеры {camera.name}")
 
 
 def load_video_to_buffer():
