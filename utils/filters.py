@@ -11,7 +11,6 @@ class IsUserAdmin(BaseFilter):
         async with AsyncSessionLocal() as session:
             user_id = message.from_user.id
             user = await get_by_id(session, 'users', user_id)
-            session.close()
             if user is None:
                 return False
             return user.access_level >= 2
