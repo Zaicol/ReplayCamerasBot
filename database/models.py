@@ -24,7 +24,7 @@ class Videos(Base):
     timestamp = Column(DateTime, nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
-    # public = Column(Boolean, nullable=False, default=False)
+    public = Column(Boolean, nullable=False, default=False)
 
     user = relationship('Users', back_populates='videos', lazy="selectin")
     court = relationship('Courts', back_populates='videos', lazy="selectin")

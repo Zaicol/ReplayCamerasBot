@@ -37,7 +37,7 @@ def capture_video(camera: Cameras, buffer: deque):
             continue
 
         # Добавляем кадр в буфер
-        resized = cv2.resize(frame, (1280, 720))
+        resized = cv2.resize(frame, (1200, 675))  # Уменьшаем разрешение до 675p
         buffer.append(resized)
 
 
