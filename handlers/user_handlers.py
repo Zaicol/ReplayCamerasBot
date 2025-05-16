@@ -119,7 +119,7 @@ async def process_input_password(message: types.Message, state: FSMContext):
 
 
 async def save_and_send_video(user: Users, message: types.Message):
-    await message.answer("Начинаю сохранение видео...")
+    await message.answer(saving_video_text)
     video_file = await save_video(user, message)
 
     sent_message = await bot.send_video(chat_id=message.chat.id, video=video_file)
