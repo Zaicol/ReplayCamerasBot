@@ -118,13 +118,13 @@ async def process_input_password(message: types.Message, state: FSMContext):
             await message.answer(wrong_password_text)
 
 
-async def save_and_send_video(user: Users, message: types.Message):
+async def save_and_send_video(user: Users, message: types.Message) -> bool:
     await message.answer(saving_video_text)
     video_file = await save_video(user, message)
 
     if video_file is None:
         await message.answer(error_text)
-        return
+        return False
 
     sent_message = await bot.send_video(chat_id=message.chat.id, video=video_file)
 
@@ -142,6 +142,8 @@ async def save_and_send_video(user: Users, message: types.Message):
         os.remove(video_file.path)
     except Exception as e:
         logging.error(f"Ошибка при удалении файла: {e}")
+
+    return True
 
 
 @user_router.message(Command("saverec"))
@@ -182,11 +184,13 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
             await state.set_state(SetupFSM.input_password)
             return
 
-    await save_and_send_video(user, message)
+    all_good = await save_and_send_video(user, message)
+    if not all_good:
+        return
 
     t_left = expiration - datetime.now()
     await message.answer(
-        f"Видео успешно сохранено!\n"
+        make_public_text + "\n" +
         f"До конца действия пароля осталось: "
         f"{t_left.seconds // 3600} ч. "
         f"{(t_left.seconds % 3600) // 60} мин. {t_left.seconds % 60} с.",
