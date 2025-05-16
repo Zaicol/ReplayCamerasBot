@@ -114,11 +114,15 @@ async def save_video(user: Users, message: types.Message):
     # Отправляем кадры в stdin FFmpeg
     for frame in buffer_copy:
         process.stdin.write(frame.tobytes())
+        await process.stdin.drain()
 
     # Завершаем запись
     process.stdin.close()
     await process.stdin.wait_closed()
-    await process.wait()
+    return_code = await process.wait()
+    if return_code != 0:
+        error_output = await process.stderr.read()
+        logger.error("FFmpeg error:", error_output.decode())
     await log_task
 
     # Отправляем видео
