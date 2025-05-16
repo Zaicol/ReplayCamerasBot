@@ -116,7 +116,7 @@ async def cmd_update_password(message: types.Message):
         await session.commit()
 
     await message.answer(
-        f"Пароль корта {found_court.name} с ID {court_id} успешно обновлен.\n"
+        f"Пароль корта {found_court.name} с ID {court_id} успешно обновлен\.\n"
         f"Новый пароль: `{found_court.current_password}`", parse_mode="MarkdownV2"
     )
     await send_courts_list(message)
