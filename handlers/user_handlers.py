@@ -4,6 +4,7 @@ from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
+from utils import password_expiration_to_string
 from utils.cameras import save_video
 from utils.keyboards import *
 from utils.states import SetupFSM
@@ -105,7 +106,7 @@ async def process_input_password(message: types.Message, state: FSMContext):
             return
 
         if court.current_password == message.text:
-            user.access_level = 1
+            user.access_level = 1 if user.access_level < 1 else user.access_level
             user.current_pasword = message.text
             await session.commit()
 
@@ -177,23 +178,27 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
 
         password_check, expiration = await check_password_and_expiration(session, user)
         if not password_check:
-            await message.answer(
-                "Текущий пароль неверен или истёк. Необходимо ввести новый пароль:",
-                reply_markup=get_back_keyboard()
-            )
-            await state.set_state(SetupFSM.input_password)
+            if user.court:
+                await message.answer(
+                    f"Текущий пароль неверен или истёк. Пожалуйста, введите новый пароль от корта {user.court.name}:",
+                    reply_markup=get_back_keyboard()
+                )
+                await state.set_state(SetupFSM.input_password)
+            else:
+                await message.answer(
+                    f"Текущий пароль неверен или истёк. Пожалуйста, выберите корт:",
+                    reply_markup=get_courts_keyboard()
+                )
+                await state.set_state(SetupFSM.select_court)
             return
 
     all_good = await save_and_send_video(user, message)
     if not all_good:
         return
 
-    t_left = expiration - datetime.now()
     await message.answer(
         make_public_text + "\n" +
-        f"До конца действия пароля осталось: "
-        f"{t_left.seconds // 3600} ч. "
-        f"{(t_left.seconds % 3600) // 60} мин. {t_left.seconds % 60} с.",
+        f"До конца действия пароля осталось: {password_expiration_to_string(expiration)}.",
         reply_markup=get_saverec_full_keyboard()
     )
 

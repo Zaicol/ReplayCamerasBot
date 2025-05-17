@@ -3,7 +3,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from database import *
-from utils import generate_password
+from utils import generate_password, password_expiration_to_string
 from utils.filters import IsUserAdmin
 from utils.states import *
 
@@ -46,7 +46,7 @@ async def process_input_court_name(message: types.Message, state: FSMContext):
                               name=court_name,
                               current_password=generate_password(),
                               previous_password=generate_password(),
-                              password_expiration_date=datetime.now() + timedelta(days=1))
+                              password_expiration_date=datetime.now() + timedelta(hours=1))
             await session.commit()
         except Exception as e:
             await message.answer(f"Произошла ошибка: {str(e)}")
@@ -67,13 +67,15 @@ async def send_courts_list(message: types.Message):
         for court in courts_list:
             await session.refresh(court)
 
-        response = "Доступные корты:\nID \\- Название \\(Пароль\\)\n"
+        response = "Доступные корты:\nID - Название - Пароль - Время истечения\n"
         for court in courts_list:
-            response += f"`{court.id}` \\- {court.name} \\(`{court.current_password}`\\)\n"
-        response += "\n\nДля удаления корта введите `/delete_court \\<ID корта\\>`\\.\n"
-        response += "Для обновления пароля корта введите `/update_password \\<ID корта\\>`\\."
+            exp = password_expiration_to_string(court.password_expiration_date)
+            response += f"<code>{court.id}</code> - {court.name} - <code>{court.current_password}</code> - {exp}\n"
+        response += "\n\nДля удаления корта введите <code>/delete_court [ID корта]</code>\n"
+        response += "Для обновления пароля корта введите <code>/update_password [ID корта]</code>."
+        response += "\nДля обновления всех паролей введите <code>/update_passwords</code>"
 
-    await message.answer(response, parse_mode="MarkdownV2")
+    await message.answer(response, parse_mode="HTML")
 
 
 @admin_router.message(Command("delete_court"))
@@ -95,6 +97,17 @@ async def cmd_delete_court(message: types.Message):
     await send_courts_list(message)
 
 
+@admin_router.message(Command("update_passwords"))
+async def cmd_update_all_passwords(message: types.Message):
+
+    async with AsyncSessionLocal() as session:
+        await check_all_courts_password(session,  True)
+        await session.commit()
+
+    await message.answer(f"Пароли всех кортов успешно обновлены.")
+    await send_courts_list(message)
+
+
 @admin_router.message(Command("update_password"))
 async def cmd_update_password(message: types.Message):
     parts = message.text.split()
@@ -109,10 +122,7 @@ async def cmd_update_password(message: types.Message):
         if not found_court:
             await message.answer("Корта с таким ID не существует.")
             return
-        new_pass = generate_password()
-        found_court.previous_password = found_court.current_password
-        found_court.current_password = new_pass
-        found_court.password_expiration_date = datetime.now() + timedelta(days=1)
+        await check_and_set_court_password(session, found_court, True)
         await session.commit()
 
     await message.answer(

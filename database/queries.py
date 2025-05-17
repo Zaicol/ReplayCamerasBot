@@ -80,21 +80,16 @@ async def check_and_create_user(local_session: AsyncSession, user_id: int, acces
 
 
 # check_and_set_court_password
-async def check_and_set_court_password(local_session: AsyncSession, court_input: Courts):
-    result = await local_session.execute(
-        select(Courts).where(Courts.id == court_input.id)
-    )
-    court = result.scalars().first()
-    if not court:
-        return None, None
+async def check_and_set_court_password(local_session: AsyncSession, court_input: Courts, force_update: bool = False):
+    court = court_input
 
     logger.debug(court.password_expiration_date, court.password_expiration_date < datetime.now())
 
-    if court.password_expiration_date < datetime.now():
+    if court.password_expiration_date < datetime.now() or force_update:
         new_password = generate_password()
         court.previous_password = court.current_password
         court.current_password = new_password
-        court.password_expiration_date = datetime.now() + timedelta(days=1)
+        court.password_expiration_date = datetime.now() + timedelta(hours=1)
         await local_session.commit()
         await local_session.refresh(court)
 
@@ -102,11 +97,11 @@ async def check_and_set_court_password(local_session: AsyncSession, court_input:
 
 
 # check_all_courts_password
-async def check_all_courts_password(local_session: AsyncSession):
+async def check_all_courts_password(local_session: AsyncSession, force_update: bool = False):
     result = await local_session.execute(select(Courts))
     courts = result.scalars().all()
     for court in courts:
-        await check_and_set_court_password(local_session, court)
+        await check_and_set_court_password(local_session, court, force_update)
 
 
 # check_password_and_expiration

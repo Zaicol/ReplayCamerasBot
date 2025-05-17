@@ -52,7 +52,8 @@ def load_video_to_buffer():
         if not ret:
             break
 
-        buffer.append(frame)
+        resized = cv2.resize(frame, (1216, 684))
+        buffer.append(resized)
 
     cap.release()
     return buffer

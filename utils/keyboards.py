@@ -29,8 +29,6 @@ def get_saverec_short_keyboard():
 def get_saverec_full_keyboard():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text=save_video_text),
-                   KeyboardButton(text=back_text)],
-                  [KeyboardButton(text=yes_text),
-                   KeyboardButton(text=no_text)]],
+                   KeyboardButton(text=back_text)]],
         resize_keyboard=True)
     return keyboard
