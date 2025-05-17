@@ -46,7 +46,7 @@ async def process_input_court_name(message: types.Message, state: FSMContext):
                               name=court_name,
                               current_password=generate_password(),
                               previous_password=generate_password(),
-                              password_expiration_date=datetime.now() + timedelta(hours=1))
+                              password_expiration_date=datetime.now().replace(microsecond=0, second=0, minute=0) + timedelta(hours=1))
             await session.commit()
         except Exception as e:
             await message.answer(f"Произошла ошибка: {str(e)}")

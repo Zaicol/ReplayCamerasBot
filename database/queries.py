@@ -89,7 +89,7 @@ async def check_and_set_court_password(local_session: AsyncSession, court_input:
         new_password = generate_password()
         court.previous_password = court.current_password
         court.current_password = new_password
-        court.password_expiration_date = datetime.now() + timedelta(hours=1)
+        court.password_expiration_date = datetime.now().replace(microsecond=0, second=0, minute=0) + timedelta(hours=1)
         await local_session.commit()
         await local_session.refresh(court)
 
