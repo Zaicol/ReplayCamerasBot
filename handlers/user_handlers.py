@@ -57,7 +57,7 @@ async def process_court_selection(message: types.Message, state: FSMContext):
 
         user = await get_by_id(session, 'users', user_id)
 
-        if user.selected_court_id == court.id and totp_dict[court.id].verify(user.current_pasword):
+        if user.selected_court_id == court.id and totp_dict[court.id].verify(user.current_password):
             await message.answer(
                 f"Вы выбрали теннисный корт: {court.name}\n",
                 reply_markup=get_saverec_short_keyboard()
@@ -104,7 +104,7 @@ async def process_input_password(message: types.Message, state: FSMContext):
 
         if totp_dict[court.id].verify(message.text):
             user.access_level = 1 if user.access_level < 1 else user.access_level
-            user.current_pasword = message.text
+            user.current_password = message.text
             await session.commit()
 
             await message.answer(
@@ -176,7 +176,7 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
             return
 
     # Проверка на истекший пароль
-    if not totp_dict[user.court.id].verify(user.current_pasword):
+    if not totp_dict[user.court.id].verify(user.current_password):
         if user.court:
             await message.answer(
                 f"Текущий пароль неверен или истёк. Пожалуйста, введите новый пароль от корта {user.court.name}:",

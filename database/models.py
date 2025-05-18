@@ -10,7 +10,7 @@ class Users(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)  # Telegram user ID
     access_level = Column(Integer, default=0)  # 0 - no access, 1 - view, 2 - save and view
-    current_pasword = Column(String, nullable=True)
+    current_password = Column(String, nullable=True)
     selected_court_id = Column(Integer, ForeignKey('courts.id'), nullable=True)
     court = relationship('Courts', back_populates='users', lazy="selectin")
     videos = relationship('Videos', back_populates='user', lazy="selectin")
