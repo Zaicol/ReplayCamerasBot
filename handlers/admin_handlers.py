@@ -75,7 +75,7 @@ async def send_courts_list(message: types.Message):
         response += "\n\nДля удаления корта введите <code>/delete_court [ID корта]</code>\n"
         response += "Для обновления пароля корта введите <code>/update_password [ID корта]</code>.\n"
         response += "Для обновления всех паролей введите <code>/update_passwords</code>\n"
-        response += "Для получения паролей на сегодня введите <code>/show_passwords [ID корта]</code>"
+        response += "Для получения паролей на сегодня введите <code>/show_passwords [ID корта]</code>"
 
     await message.answer(response, parse_mode="HTML")
 

@@ -34,7 +34,7 @@ class Courts(Base):
     __tablename__ = 'courts'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
-    totp_secret = Column(String, nullable=False)
+    totp_secret = Column(String, nullable=True)
 
     users = relationship('Users', back_populates='court', lazy="selectin")
     videos = relationship('Videos', back_populates='court', lazy="selectin")
