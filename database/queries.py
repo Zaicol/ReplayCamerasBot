@@ -1,12 +1,10 @@
 import logging
-from datetime import datetime, timedelta
-
-from icecream import ic
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from pyotp import random_base32
 
+from utils import update_totp_dict
 from database.models import *
-from utils import generate_password
 
 logger = logging.getLogger(__name__)
 
@@ -79,37 +77,21 @@ async def check_and_create_user(local_session: AsyncSession, user_id: int, acces
     return user
 
 
-# check_and_set_court_password
-async def check_and_set_court_password(local_session: AsyncSession, court_input: Courts, force_update: bool = False):
+# update_court_secret
+async def update_court_secret(local_session: AsyncSession, court_input: Courts):
     court = court_input
-
-    logger.debug(court.password_expiration_date, court.password_expiration_date < datetime.now())
-
-    if court.password_expiration_date < datetime.now() or force_update:
-        new_password = generate_password()
-        court.previous_password = court.current_password
-        court.current_password = new_password
-        court.password_expiration_date = datetime.now().replace(microsecond=0, second=0, minute=0) + timedelta(hours=1)
-        await local_session.commit()
-        await local_session.refresh(court)
-
-    return court.current_password, court.password_expiration_date
+    court.totp_secret = random_base32()
+    await local_session.commit()
+    await local_session.refresh(court)
+    update_totp_dict(court)
 
 
-# check_all_courts_password
-async def check_all_courts_password(local_session: AsyncSession, force_update: bool = False):
+# update_all_courts_secret
+async def update_all_courts_secret(local_session: AsyncSession):
     result = await local_session.execute(select(Courts))
     courts = result.scalars().all()
     for court in courts:
-        await check_and_set_court_password(local_session, court, force_update)
-
-
-# check_password_and_expiration
-async def check_password_and_expiration(local_session: AsyncSession, user: Users) -> tuple[bool, datetime | None]:
-    if user.court:
-        password, expiration_date = await check_and_set_court_password(local_session, user.court)
-        return password == user.current_pasword, expiration_date
-    return False, None
+        await update_court_secret(local_session, court)
 
 
 # get_last_video
@@ -118,7 +100,7 @@ async def get_last_video(local_session: AsyncSession, user_id: int) -> Videos | 
         select(Users).where(Users.id == user_id)
     )
     user = result.scalars().first()
-    ic(user)
+
     if not user:
         return None
 
@@ -129,7 +111,7 @@ async def get_last_video(local_session: AsyncSession, user_id: int) -> Videos | 
         .limit(1)
     )
     video = result.scalars().first()
-    ic(video)
+
     return video
 
 
@@ -138,3 +120,11 @@ async def make_video_public(local_session: AsyncSession, video) -> bool:
     video.public = True
     await local_session.commit()
     return True
+
+
+async def set_secret_for_all_courts(local_session: AsyncSession):
+    result = await local_session.execute(select(Courts))
+    courts = result.scalars().all()
+    for court in courts:
+        if not court.totp_secret:
+            await update_court_secret(local_session, court)

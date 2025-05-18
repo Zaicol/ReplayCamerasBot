@@ -1,9 +1,12 @@
+from datetime import datetime, timedelta
+
 from aiogram import types, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
+from config.config import totp_dict
 from database import *
-from utils import generate_password, password_expiration_to_string
+from utils import generate_password, password_expiration_to_string, get_totp_for_all_day
 from utils.filters import IsUserAdmin
 from utils.states import *
 
@@ -42,11 +45,11 @@ async def process_input_court_name(message: types.Message, state: FSMContext):
     court_name = message.text
     async with AsyncSessionLocal() as session:
         try:
-            await create_item(session, 'courts',
-                              name=court_name,
-                              current_password=generate_password(),
-                              previous_password=generate_password(),
-                              password_expiration_date=datetime.now().replace(microsecond=0, second=0, minute=0) + timedelta(hours=1))
+            await create_item(
+                session, 'courts',
+                name=court_name,
+                secret=generate_password(),
+            )
             await session.commit()
         except Exception as e:
             await message.answer(f"Произошла ошибка: {str(e)}")
@@ -59,7 +62,6 @@ async def process_input_court_name(message: types.Message, state: FSMContext):
 
 async def send_courts_list(message: types.Message):
     async with AsyncSessionLocal() as session:
-        await check_all_courts_password(session)
         result = await get_all(session, 'courts')
         courts_list = result if isinstance(result, list) else await result.scalars().all()
 
@@ -67,15 +69,26 @@ async def send_courts_list(message: types.Message):
         for court in courts_list:
             await session.refresh(court)
 
-        response = "Доступные корты:\nID - Название - Пароль - Время истечения\n"
+        response = "Доступные корты:\nID - Название - Пароль\n"
         for court in courts_list:
-            exp = password_expiration_to_string(court.password_expiration_date)
-            response += f"<code>{court.id}</code> - {court.name} - <code>{court.current_password}</code> - {exp}\n"
+            response += f"<code>{court.id}</code> - {court.name} - <code>{totp_dict[court.id].now()}</code>\n"
         response += "\n\nДля удаления корта введите <code>/delete_court [ID корта]</code>\n"
-        response += "Для обновления пароля корта введите <code>/update_password [ID корта]</code>."
-        response += "\nДля обновления всех паролей введите <code>/update_passwords</code>"
+        response += "Для обновления пароля корта введите <code>/update_password [ID корта]</code>.\n"
+        response += "Для обновления всех паролей введите <code>/update_passwords</code>\n"
+        response += "Для получения паролей на сегодня введите <code>/show_passwords [ID корта]</code>"
 
     await message.answer(response, parse_mode="HTML")
+
+
+async def send_passwords_for_a_day(message: types.Message, court_id: int, court_name: str):
+    passwords_list = await get_totp_for_all_day(court_id)
+    today = datetime.now().replace(microsecond=0, second=0, minute=0, hour=0)
+
+    response = f"Пароли для корта «{court_name}» на сегодня:\n"
+    for i, password in enumerate(passwords_list, 0):
+        hour = today + timedelta(hours=i)
+        response += f"{hour.strftime('%H')}:00\-{hour.strftime('%H')}:59 \- `{password}`\n"
+    await message.answer(response, parse_mode="MarkdownV2")
 
 
 @admin_router.message(Command("delete_court"))
@@ -99,9 +112,8 @@ async def cmd_delete_court(message: types.Message):
 
 @admin_router.message(Command("update_passwords"))
 async def cmd_update_all_passwords(message: types.Message):
-
     async with AsyncSessionLocal() as session:
-        await check_all_courts_password(session,  True)
+        await update_all_courts_secret(session)
         await session.commit()
 
     await message.answer(f"Пароли всех кортов успешно обновлены.")
@@ -122,14 +134,31 @@ async def cmd_update_password(message: types.Message):
         if not found_court:
             await message.answer("Корта с таким ID не существует.")
             return
-        await check_and_set_court_password(session, found_court, True)
+        await update_court_secret(session, found_court)
         await session.commit()
 
     await message.answer(
-        f"Пароль корта {found_court.name} с ID {court_id} успешно обновлен\.\n"
-        f"Новый пароль: `{found_court.current_password}`", parse_mode="MarkdownV2"
+        f"Пароль корта {found_court.name} с ID {court_id} успешно обновлен."
     )
+    await send_passwords_for_a_day(message, court_id, found_court.name)
     await send_courts_list(message)
+
+
+@admin_router.message(Command("show_passwords"))
+async def cmd_show_passwords(message: types.Message):
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer("ID корта должен быть числом и указан.")
+        return
+    court_id = int(parts[1])
+
+    async with AsyncSessionLocal() as session:
+        found_court = await get_by_id(session, 'courts', court_id)
+        if not found_court:
+            await message.answer("Корта с таким ID не существует.")
+            return
+
+    await send_passwords_for_a_day(message, court_id, found_court.name)
 
 
 @admin_router.message(DeleteCourtFSM.input_court_id)

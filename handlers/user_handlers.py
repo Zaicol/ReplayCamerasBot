@@ -1,17 +1,18 @@
 import os
+from datetime import datetime
 
 from aiogram import types, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
-from utils import password_expiration_to_string
+from utils import password_expiration_to_string, get_time_until_full_hour
 from utils.cameras import save_video
 from utils.keyboards import *
 from utils.states import SetupFSM
 from database import *
 from utils.texts import *
 
-from config.config import bot
+from config.config import bot, totp_dict
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,6 @@ async def process_court_selection(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     async with AsyncSessionLocal() as session:
         await check_and_create_user(session, user_id)
-        await check_all_courts_password(session)
 
         court_name = message.text
         court = await get_by_name(session, 'courts', court_name)
@@ -57,10 +57,7 @@ async def process_court_selection(message: types.Message, state: FSMContext):
 
         user = await get_by_id(session, 'users', user_id)
 
-        if user.selected_court_id:
-            logger.debug(user.selected_court_id, court.id, user.current_pasword, user.court.current_password)
-
-        if user.selected_court_id == court.id and user.current_pasword == user.court.current_password:
+        if user.selected_court_id == court.id and totp_dict[court.id].verify(user.current_pasword):
             await message.answer(
                 f"Вы выбрали теннисный корт: {court.name}\n",
                 reply_markup=get_saverec_short_keyboard()
@@ -105,7 +102,7 @@ async def process_input_password(message: types.Message, state: FSMContext):
             await state.clear()
             return
 
-        if court.current_password == message.text:
+        if totp_dict[court.id].verify(message.text):
             user.access_level = 1 if user.access_level < 1 else user.access_level
             user.current_pasword = message.text
             await session.commit()
@@ -154,10 +151,12 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
         await check_and_create_user(session, message.from_user.id)
         user = await get_by_id(session, 'users', message.from_user.id)
 
-        if not user or user.access_level < 1:
+        if not user or user.access_level < 1 or not user.court:
             await message.answer("У вас нет прав для сохранения видео.")
+            await state.clear()
             return
 
+        # В данный момент этот функционал скрыт
         if message.text == no_text:
             await message.answer("Хорошо, мы не будем публиковать видео")
             return
@@ -176,21 +175,21 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
             await message.answer(public_text)
             return
 
-        password_check, expiration = await check_password_and_expiration(session, user)
-        if not password_check:
-            if user.court:
-                await message.answer(
-                    f"Текущий пароль неверен или истёк. Пожалуйста, введите новый пароль от корта {user.court.name}:",
-                    reply_markup=get_back_keyboard()
-                )
-                await state.set_state(SetupFSM.input_password)
-            else:
-                await message.answer(
-                    f"Текущий пароль неверен или истёк. Пожалуйста, выберите корт:",
-                    reply_markup=get_courts_keyboard()
-                )
-                await state.set_state(SetupFSM.select_court)
-            return
+    # Проверка на истекший пароль
+    if not totp_dict[user.court.id].verify(user.current_pasword):
+        if user.court:
+            await message.answer(
+                f"Текущий пароль неверен или истёк. Пожалуйста, введите новый пароль от корта {user.court.name}:",
+                reply_markup=get_back_keyboard()
+            )
+            await state.set_state(SetupFSM.input_password)
+        else:
+            await message.answer(
+                f"Текущий пароль неверен или истёк. Пожалуйста, выберите корт:",
+                reply_markup=get_courts_keyboard()
+            )
+            await state.set_state(SetupFSM.select_court)
+        return
 
     all_good = await save_and_send_video(user, message)
     if not all_good:
@@ -198,7 +197,7 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
 
     await message.answer(
         make_public_text + "\n" +
-        f"До конца действия пароля осталось: {password_expiration_to_string(expiration)}.",
+        f"До конца действия пароля осталось: {password_expiration_to_string(get_time_until_full_hour())}.",
         reply_markup=get_saverec_full_keyboard()
     )
 

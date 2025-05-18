@@ -1,7 +1,9 @@
 import os
+from collections import deque
 
 from aiogram import Dispatcher, Bot
 from dotenv import load_dotenv
+from pyotp import TOTP
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -14,8 +16,8 @@ BUFFER_DURATION = int(os.getenv('CAMERA_BUFFER_DURATION', 40))
 FPS = int(os.getenv('CAMERA_FPS', 25))
 MAX_FRAMES = BUFFER_DURATION * FPS
 
-buffers = {}
-totp_dict = {}
+buffers: dict[int, deque] = {}
+totp_dict: dict[int, TOTP] = {}
 
 # Инициализация бота
 bot = Bot(token=API_TOKEN)
