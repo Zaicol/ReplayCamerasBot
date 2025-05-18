@@ -34,9 +34,8 @@ class Courts(Base):
     __tablename__ = 'courts'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
-    current_password = Column(String, nullable=False)
-    previous_password = Column(String, nullable=False)
-    password_expiration_date = Column(DateTime, nullable=False)
+    totp_secret = Column(String, nullable=False)
+
     users = relationship('Users', back_populates='court', lazy="selectin")
     videos = relationship('Videos', back_populates='court', lazy="selectin")
     cameras = relationship('Cameras', back_populates='court', lazy="selectin")

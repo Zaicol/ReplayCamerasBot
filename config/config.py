@@ -15,6 +15,7 @@ FPS = int(os.getenv('CAMERA_FPS', 25))
 MAX_FRAMES = BUFFER_DURATION * FPS
 
 buffers = {}
+totp_dict = {}
 
 # Инициализация бота
 bot = Bot(token=API_TOKEN)
