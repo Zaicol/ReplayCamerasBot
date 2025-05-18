@@ -1,12 +1,13 @@
 import asyncio
 import threading
-from collections import deque
-from config.config import bot, dp, MAX_FRAMES, buffers
-from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
-from utils import *
-from handlers import *
-from utils.cameras import capture_video
 from pyotp import TOTP
+from collections import deque
+
+from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
+from config.config import bot, dp, MAX_FRAMES, buffers, totp_dict
+from utils.cameras import capture_video
+from utils import setup_logger
+from handlers import *
 
 # Настройка логгера
 logger = setup_logger()

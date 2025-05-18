@@ -1,10 +1,7 @@
-import asyncio
-import subprocess
-import sys
-from time import sleep
 import cv2
+import asyncio
 import logging
-import threading
+from time import sleep
 from collections import deque
 
 from aiogram import types

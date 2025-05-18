@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 
 from config.config import totp_dict
 from database import *
-from utils import generate_password, password_expiration_to_string, get_totp_for_all_day
+from utils import generate_password, get_totp_for_all_day
 from utils.filters import IsUserAdmin
 from utils.states import *
 

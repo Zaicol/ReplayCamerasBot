@@ -1,5 +1,5 @@
-import logging
 import os
+import logging
 from logging.handlers import RotatingFileHandler
 
 # Создаем папку для логов, если её нет
