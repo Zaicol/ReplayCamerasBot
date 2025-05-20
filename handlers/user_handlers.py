@@ -197,7 +197,7 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
 
     await message.answer(
         make_public_text + "\n" +
-        f"До конца действия пароля осталось: {password_expiration_to_string(get_time_until_full_hour())}.",
+        f"До конца действия пароля осталось: {password_expiration_to_string(get_time_until_full_hour())}",
         reply_markup=get_saverec_full_keyboard()
     )
 
