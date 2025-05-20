@@ -1,4 +1,5 @@
 import asyncio
+import os
 import threading
 from pyotp import TOTP
 from collections import deque
@@ -46,6 +47,9 @@ async def main():
 
 
 if __name__ == "__main__":
+    with open("bot.pid", "w") as f:
+        f.write(str(os.getpid()))
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
