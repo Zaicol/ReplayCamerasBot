@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pyotp import random_base32
 
 from utils import update_totp_dict
@@ -21,6 +21,17 @@ async def get_all(session: AsyncSession, table: str):
     result = await session.execute(select(model))
     return result.scalars().all()
 
+
+async def get_count(session: AsyncSession, table: str) -> int:
+    model = get_model(table)
+    result = await session.execute(select(func.count()).select_from(model))
+    return result.scalar()
+
+
+async def get_first(session: AsyncSession, table: str):
+    model = get_model(table)
+    result = await session.execute(select(model))
+    return result.scalars().first()
 
 async def get_by_id(session: AsyncSession, table: str, record_id: int):
     model = get_model(table)

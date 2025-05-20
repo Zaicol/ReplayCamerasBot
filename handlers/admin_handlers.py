@@ -146,9 +146,15 @@ async def cmd_update_password(message: types.Message):
 
 @admin_router.message(Command("show_passwords"))
 async def cmd_show_passwords(message: types.Message):
+
+    async with AsyncSessionLocal() as session:
+        if await get_count(session, 'courts') == 1:
+            court = await get_first(session, 'courts')
+            return await send_passwords_for_a_day(message, court.id, court.name)
+
     parts = message.text.split()
     if len(parts) != 2 or not parts[1].isdigit():
-        await message.answer("ID корта должен быть числом и указан.")
+        await message.answer("Необходимо указать правильный ID корта - /show_courts.")
         return
     court_id = int(parts[1])
 
