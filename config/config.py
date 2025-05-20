@@ -22,3 +22,5 @@ totp_dict: dict[int, TOTP] = {}
 # Инициализация бота
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
+
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"

@@ -1,7 +1,6 @@
 import cv2
 import asyncio
 import logging
-from time import sleep
 from collections import deque
 
 from aiogram import types
@@ -9,6 +8,9 @@ from aiogram.types import FSInputFile
 
 from config.config import VERSION, FPS, buffers, MAX_FRAMES
 from database.models import Cameras, Users
+import subprocess as sp
+import numpy as np
+import time as t
 
 logger = logging.getLogger(__name__)
 
@@ -17,25 +19,49 @@ logger.info(f"Максимальное количество кадров в бу
 
 # Фоновая задача для записи видео в буфер
 def capture_video(camera: Cameras, buffer: deque):
-    # RTSP настройки камеры
     rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
+    time_to_sleep = 1 / FPS
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
-    cap = cv2.VideoCapture(rtsp_url)
-    if not cap.isOpened():
-        logging.error("Ошибка: Не удалось подключиться к видеопотоку.")
-        return
+    width, height = 1216, 684
+    frame_size = width * height * 3
+
+    command = [
+        'ffmpeg',
+        '-loglevel', 'quiet',
+        '-rtsp_transport', 'tcp',
+        '-i', rtsp_url,
+        '-pix_fmt', 'bgr24',
+        '-s', f'{width}x{height}',
+        '-f', 'image2pipe',
+        '-vcodec', 'rawvideo', '-']
+
+    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL)
 
     while True:
-        ret, frame = cap.read()
-        if not ret or frame is None:
-            logging.error("Ошибка: Не удалось получить кадр из видеопотока. Повторная попытка...")
-            sleep(1)
+        raw_frame = process.stdout.read(frame_size)
+        if not raw_frame or len(raw_frame) < frame_size:
+            logging.error("Ошибка: Не удалось получить корректный кадр. Перезапуск...")
+            process.kill()
+            process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL)
             continue
 
-        # Добавляем кадр в буфер
-        resized = cv2.resize(frame, (1216, 684))  # Уменьшаем разрешение до 684p
-        buffer.append(resized)
+        frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((height, width, 3))
+
+        # current_hash = hash(frame.tobytes())
+        # if current_hash == prev_hash:
+        #     # logging.debug("Пропускаем дубликат кадра")
+        #     t.sleep(0.01)
+        #     continue
+        #
+        # prev_hash = current_hash
+        buffer.append(frame.copy())
+
+        # Ограничиваем размер буфера
+        if len(buffer) > buffer.maxlen:
+            buffer.popleft()
+
+        t.sleep(time_to_sleep)  # Легкая пауза, чтобы не перегружать CPU
 
 
 def load_video_to_buffer():
