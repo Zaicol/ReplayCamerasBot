@@ -75,13 +75,14 @@ def capture_video(camera: Cameras, buffer: deque):
 
         bad_reads = 0
 
-        if FRAME_WIDTH and FRAME_HEIGHT:
-            try:
-                frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((height, width, 3))
-            except ValueError:
-                logger.warning("Не удалось декодировать кадр. Пропуск.")
-                t.sleep(time_to_sleep / 2)
-                continue
+        try:
+            frame = np.frombuffer(frame, dtype=np.uint8)
+            if FRAME_WIDTH and FRAME_HEIGHT:
+                frame = frame.reshape((height, width, 3))
+        except ValueError:
+            logger.warning("Не удалось декодировать кадр. Пропуск.")
+            t.sleep(time_to_sleep / 2)
+            continue
 
         buffer.append(frame.copy())
         t.sleep(time_to_sleep)
