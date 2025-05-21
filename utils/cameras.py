@@ -19,7 +19,7 @@ logger.info(f"Максимальное количество кадров в бу
 # Параметры для запуска ffmpeg
 CREATE_NO_WINDOW = 0x08000000
 # Максимальное количество неудачных чтений ffmpeg
-MAX_BAD_READS = 5
+MAX_BAD_READS = 20
 
 
 # Фоновая задача для записи видео в буфер
@@ -73,7 +73,7 @@ def capture_video(camera: Cameras, buffer: deque):
                 process.kill()
                 process = start_ffmpeg()
                 bad_reads = 0
-            t.sleep(time_to_sleep / 2)
+            t.sleep(time_to_sleep)
             continue
 
         bad_reads = 0
@@ -82,7 +82,7 @@ def capture_video(camera: Cameras, buffer: deque):
             frame = np.frombuffer(frame, dtype=np.uint8).reshape((height, width, 3))
         except ValueError:
             logger.warning("Не удалось декодировать кадр. Пропуск.")
-            t.sleep(time_to_sleep / 2)
+            t.sleep(time_to_sleep)
             continue
 
         buffer.append(frame.copy())

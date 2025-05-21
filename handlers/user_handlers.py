@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 from aiogram import types, F, Router
 from aiogram.filters import Command
