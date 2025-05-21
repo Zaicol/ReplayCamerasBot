@@ -27,6 +27,8 @@ def capture_video(camera: Cameras, buffer: deque):
     rtsp_url = (
         f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
         "/cam/realmonitor?channel=1&subtype=0"
+    ) if VERSION != "test2" else (
+        f"rtsp://172.28.243.141:8554/mystream"
     )
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
@@ -41,7 +43,7 @@ def capture_video(camera: Cameras, buffer: deque):
         '-rtsp_transport', 'tcp',
         '-i', rtsp_url,
         '-pix_fmt', 'bgr24',
-        '-s', f'{FRAME_WIDTH}x{FRAME_HEIGHT}',
+        '-s', f'{width}x{height}',
         '-f', 'image2pipe',
         '-vcodec', 'rawvideo', '-'
     ]
