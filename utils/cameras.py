@@ -6,7 +6,7 @@ from collections import deque
 from aiogram import types
 from aiogram.types import FSInputFile
 
-from config.config import VERSION, FPS, buffers, MAX_FRAMES
+from config.config import VERSION, FPS, buffers, MAX_FRAMES, FRAME_WIDTH, FRAME_HEIGHT
 from database.models import Cameras, Users
 import subprocess as sp
 import numpy as np
@@ -30,7 +30,8 @@ def capture_video(camera: Cameras, buffer: deque):
     )
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
-    width, height = 1216, 684
+    width = FRAME_WIDTH if FRAME_WIDTH else 1280
+    height = FRAME_HEIGHT if FRAME_HEIGHT else 720
     frame_size = width * height * 3
     time_to_sleep = 1 / FPS
 
@@ -40,7 +41,7 @@ def capture_video(camera: Cameras, buffer: deque):
         '-rtsp_transport', 'tcp',
         '-i', rtsp_url,
         '-pix_fmt', 'bgr24',
-        '-s', f'{width}x{height}',
+        '-s', f'{FRAME_WIDTH}x{FRAME_HEIGHT}',
         '-f', 'image2pipe',
         '-vcodec', 'rawvideo', '-'
     ]
@@ -57,9 +58,9 @@ def capture_video(camera: Cameras, buffer: deque):
     bad_reads = 0
 
     while True:
-        raw_frame = process.stdout.read(frame_size)
+        frame = process.stdout.read(frame_size)
 
-        if not raw_frame or len(raw_frame) < frame_size:
+        if not frame or len(frame) < frame_size:
             bad_reads += 1
             logger.warning(f"Недостаточно данных от ffmpeg (попытка {bad_reads}/{MAX_BAD_READS})")
             if bad_reads >= MAX_BAD_READS:
@@ -72,12 +73,13 @@ def capture_video(camera: Cameras, buffer: deque):
 
         bad_reads = 0
 
-        try:
-            frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((height, width, 3))
-        except ValueError:
-            logger.warning("Не удалось декодировать кадр. Пропуск.")
-            t.sleep(time_to_sleep / 2)
-            continue
+        if FRAME_WIDTH and FRAME_HEIGHT:
+            try:
+                frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((height, width, 3))
+            except ValueError:
+                logger.warning("Не удалось декодировать кадр. Пропуск.")
+                t.sleep(time_to_sleep / 2)
+                continue
 
         buffer.append(frame.copy())
         t.sleep(time_to_sleep)
