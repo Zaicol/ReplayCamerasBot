@@ -43,10 +43,13 @@ def capture_video(camera: Cameras, buffer: deque):
         '-rtsp_transport', 'tcp',
         '-i', rtsp_url,
         '-pix_fmt', 'bgr24',
-        '-s', f'{width}x{height}',
         '-f', 'image2pipe',
         '-vcodec', 'rawvideo', '-'
     ]
+
+    if FRAME_WIDTH and FRAME_HEIGHT:
+        command.insert(-3, '-s')
+        command.insert(-3, f'{width}x{height}')
 
     def start_ffmpeg():
         return sp.Popen(
@@ -76,9 +79,7 @@ def capture_video(camera: Cameras, buffer: deque):
         bad_reads = 0
 
         try:
-            frame = np.frombuffer(frame, dtype=np.uint8)
-            if FRAME_WIDTH and FRAME_HEIGHT:
-                frame = frame.reshape((height, width, 3))
+            frame = np.frombuffer(frame, dtype=np.uint8).reshape((height, width, 3))
         except ValueError:
             logger.warning("Не удалось декодировать кадр. Пропуск.")
             t.sleep(time_to_sleep / 2)
