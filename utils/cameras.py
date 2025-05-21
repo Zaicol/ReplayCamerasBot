@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 logger.info(f"Максимальное количество кадров в буфере: {MAX_FRAMES}")
 
+# Параметры для запуска ffmpeg
+CREATE_NO_WINDOW = 0x08000000
 
 # Фоновая задача для записи видео в буфер
 def capture_video(camera: Cameras, buffer: deque):
@@ -36,25 +38,17 @@ def capture_video(camera: Cameras, buffer: deque):
         '-f', 'image2pipe',
         '-vcodec', 'rawvideo', '-']
 
-    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL)
+    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL, creationflags=CREATE_NO_WINDOW)
 
     while True:
         raw_frame = process.stdout.read(frame_size)
         if not raw_frame or len(raw_frame) < frame_size:
             logging.error("Ошибка: Не удалось получить корректный кадр. Перезапуск...")
             process.kill()
-            process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL)
+            process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL, creationflags=CREATE_NO_WINDOW)
             continue
 
         frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((height, width, 3))
-
-        # current_hash = hash(frame.tobytes())
-        # if current_hash == prev_hash:
-        #     # logging.debug("Пропускаем дубликат кадра")
-        #     t.sleep(0.01)
-        #     continue
-        #
-        # prev_hash = current_hash
         buffer.append(frame.copy())
 
         # Ограничиваем размер буфера
@@ -122,7 +116,8 @@ async def save_video(user: Users, message: types.Message):
         *command,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        stderr=asyncio.subprocess.PIPE,
+        creationflags=CREATE_NO_WINDOW
     )
 
     async def read_stream(stream):
