@@ -18,15 +18,21 @@ logger.info(f"Максимальное количество кадров в бу
 
 # Параметры для запуска ffmpeg
 CREATE_NO_WINDOW = 0x08000000
+# Максимальное количество неудачных чтений ffmpeg
+MAX_BAD_READS = 5
+
 
 # Фоновая задача для записи видео в буфер
 def capture_video(camera: Cameras, buffer: deque):
-    rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
-    time_to_sleep = 1 / FPS
+    rtsp_url = (
+        f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
+        "/cam/realmonitor?channel=1&subtype=0"
+    )
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
     width, height = 1216, 684
     frame_size = width * height * 3
+    time_to_sleep = 1 / FPS
 
     command = [
         'ffmpeg',
@@ -36,26 +42,45 @@ def capture_video(camera: Cameras, buffer: deque):
         '-pix_fmt', 'bgr24',
         '-s', f'{width}x{height}',
         '-f', 'image2pipe',
-        '-vcodec', 'rawvideo', '-']
+        '-vcodec', 'rawvideo', '-'
+    ]
 
-    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL, creationflags=CREATE_NO_WINDOW)
+    def start_ffmpeg():
+        return sp.Popen(
+            command,
+            stdout=sp.PIPE,
+            stderr=sp.DEVNULL,
+            creationflags=CREATE_NO_WINDOW
+        )
+
+    process = start_ffmpeg()
+    bad_reads = 0
 
     while True:
         raw_frame = process.stdout.read(frame_size)
+
         if not raw_frame or len(raw_frame) < frame_size:
-            logging.error("Ошибка: Не удалось получить корректный кадр. Перезапуск...")
-            process.kill()
-            process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.DEVNULL, creationflags=CREATE_NO_WINDOW)
+            bad_reads += 1
+            logger.warning(f"Недостаточно данных от ffmpeg (попытка {bad_reads}/{MAX_BAD_READS})")
+            if bad_reads >= MAX_BAD_READS:
+                logger.error("Слишком много неудачных чтений. Перезапуск ffmpeg.")
+                process.kill()
+                process = start_ffmpeg()
+                bad_reads = 0
+            t.sleep(time_to_sleep / 2)
             continue
 
-        frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((height, width, 3))
+        bad_reads = 0
+
+        try:
+            frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((height, width, 3))
+        except ValueError:
+            logger.warning("Не удалось декодировать кадр. Пропуск.")
+            t.sleep(time_to_sleep / 2)
+            continue
+
         buffer.append(frame.copy())
-
-        # Ограничиваем размер буфера
-        if len(buffer) > buffer.maxlen:
-            buffer.popleft()
-
-        t.sleep(time_to_sleep)  # Легкая пауза, чтобы не перегружать CPU
+        t.sleep(time_to_sleep)
 
 
 def load_video_to_buffer():
