@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime, time
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pyotp import random_base32
@@ -25,6 +27,17 @@ async def get_all(session: AsyncSession, table: str):
 async def get_count(session: AsyncSession, table: str) -> int:
     model = get_model(table)
     result = await session.execute(select(func.count()).select_from(model))
+    return result.scalar()
+
+
+async def get_videos_by_date_count(session: AsyncSession) -> int:
+    # Возвращает количество записанных сегодня видео
+    today_start = datetime.combine(datetime.now().date(), time.min)
+    result = await session.execute(
+        select(func.count())
+        .select_from(Videos)
+        .where(Videos.timestamp >= today_start)
+    )
     return result.scalar()
 
 

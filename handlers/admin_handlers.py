@@ -242,3 +242,13 @@ async def cmd_logs(message: types.Message):
         await message.answer_document(log_file, caption="Файл логов:")
     except Exception as e:
         await message.answer(f"Ошибка при отправке файла: {e}")
+
+
+@admin_router.message(Command("stats"))
+async def cmd_stats(message: types.Message):
+    async with AsyncSessionLocal() as session:
+        videos_count = await get_videos_by_date_count(session)
+        users_count = await get_count(session, 'users')
+
+    response = f"Количество видео за сегодня: {videos_count}\nОбщее число пользователей: {users_count}"
+    await message.answer(response)
