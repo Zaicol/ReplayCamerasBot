@@ -1,8 +1,10 @@
+import os
 from datetime import datetime, timedelta
 
 from aiogram import types, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.types import FSInputFile
 
 from config.config import totp_dict
 from database import *
@@ -225,3 +227,18 @@ async def send_cameras_list(message: types.Message):
     for camera in cameras_list:
         response += f"/show_camera_{camera.id} - {camera.name}\n"
     await message.answer(response)
+
+
+@admin_router.message(Command("logs"))
+async def cmd_logs(message: types.Message):
+    # Отправляет файл logs/bot.log
+    log_path = "logs/bot.log"
+    if not os.path.exists(log_path):
+        await message.answer("Файл логов не найден.")
+        return
+
+    try:
+        log_file = FSInputFile(log_path)
+        await message.answer_document(log_file, caption="Файл логов:")
+    except Exception as e:
+        await message.answer(f"Ошибка при отправке файла: {e}")
