@@ -83,6 +83,7 @@ def capture_video(camera: Cameras, buffer: deque):
         t.sleep(time_to_sleep)
 
 
+# Функция только для локальных тестов
 def load_video_to_buffer():
     cap = cv2.VideoCapture("temp_video_camera_1.mp4")
     if not cap.isOpened():
@@ -149,7 +150,7 @@ async def save_video(user: Users, message: types.Message):
         while not stream.at_eof():
             line = await stream.readline()
             if line:
-                print(line.decode(errors="ignore").strip())
+                logger.info("FFmpeg - " + line.decode(errors="ignore").strip())
 
     log_task = asyncio.create_task(read_stream(process.stderr))
 
@@ -158,23 +159,21 @@ async def save_video(user: Users, message: types.Message):
             process.stdin.write(frame.tobytes())
             await process.stdin.drain()
     except (BrokenPipeError, ConnectionResetError) as e:
-        await message.answer("Ошибка при записи видео. FFmpeg закрыл соединение.")
-        print(f"Write error: {e}")
+        logger.error(f"Write error: {e}")
         return
 
     process.stdin.close()
     try:
         await process.stdin.wait_closed()
     except Exception as e:
-        print(f"stdin.wait_closed() failed: {e}")
+        logger.error(f"stdin.wait_closed() failed: {e}")
 
     return_code = await process.wait()
     await log_task
 
     if return_code != 0:
         error_output = await process.stderr.read()
-        print("FFmpeg error output:\n", error_output.decode(errors="ignore"))
-        await message.answer("Произошла ошибка при сохранении видео.")
+        logger.error("FFmpeg error output:\n", error_output.decode(errors="ignore"))
         return
 
     # Отправляем видео
