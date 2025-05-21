@@ -24,69 +24,29 @@ MAX_BAD_READS = 20
 
 # Фоновая задача для записи видео в буфер
 def capture_video(camera: Cameras, buffer: deque):
-    rtsp_url = (
-        f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
-        "/cam/realmonitor?channel=1&subtype=0"
-    ) if VERSION != "test2" else (
-        f"rtsp://172.28.243.141:8554/mystream"
-    )
+    time_to_sleep = 1 / FPS
+    # RTSP настройки камеры
+    rtsp_url = f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
+    if VERSION == "test2":
+        rtsp_url = f"rtsp://172.28.243.141:8554/mystream"
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
-    width = FRAME_WIDTH if FRAME_WIDTH else 1280
-    height = FRAME_HEIGHT if FRAME_HEIGHT else 720
-    frame_size = width * height * 3
-    time_to_sleep = 1 / FPS
-
-    command = [
-        'ffmpeg',
-        '-loglevel', 'quiet',
-        '-rtsp_transport', 'tcp',
-        '-i', rtsp_url,
-        '-pix_fmt', 'bgr24',
-        '-f', 'image2pipe',
-        '-vcodec', 'rawvideo', '-'
-    ]
-
-    if FRAME_WIDTH and FRAME_HEIGHT:
-        command.insert(-3, '-s')
-        command.insert(-3, f'{width}x{height}')
-
-    def start_ffmpeg():
-        return sp.Popen(
-            command,
-            stdout=sp.PIPE,
-            stderr=sp.DEVNULL,
-            creationflags=CREATE_NO_WINDOW
-        )
-
-    process = start_ffmpeg()
-    bad_reads = 0
+    cap = cv2.VideoCapture(rtsp_url)
+    if not cap.isOpened():
+        logging.error("Ошибка: Не удалось подключиться к видеопотоку.")
+        return
 
     while True:
-        frame = process.stdout.read(frame_size)
-
-        if not frame or len(frame) < frame_size:
-            bad_reads += 1
-            logger.warning(f"Недостаточно данных от ffmpeg (попытка {bad_reads}/{MAX_BAD_READS})")
-            if bad_reads >= MAX_BAD_READS:
-                logger.error("Слишком много неудачных чтений. Перезапуск ffmpeg.")
-                process.kill()
-                process = start_ffmpeg()
-                bad_reads = 0
+        ret, frame = cap.read()
+        if not ret or frame is None:
+            logging.error("Ошибка: Не удалось получить кадр из видеопотока. Повторная попытка...")
             t.sleep(time_to_sleep)
             continue
 
-        bad_reads = 0
-
-        try:
-            frame = np.frombuffer(frame, dtype=np.uint8).reshape((height, width, 3))
-        except ValueError:
-            logger.warning("Не удалось декодировать кадр. Пропуск.")
-            t.sleep(time_to_sleep)
-            continue
-
-        buffer.append(frame.copy())
-        t.sleep(time_to_sleep)
+        # Добавляем кадр в буфер
+        if FRAME_WIDTH and FRAME_HEIGHT:
+            frame = cv2.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT))
+        buffer.append(frame)
 
 
 # Функция только для локальных тестов
