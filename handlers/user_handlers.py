@@ -51,14 +51,14 @@ async def process_court_selection(message: types.Message, state: FSMContext):
         court = await get_by_name(session, 'courts', court_name)
 
         if not court:
-            await message.answer("Корта с таким именем не существует.")
+            await message.answer(court_doesnt_exist_text)
             return
 
         user = await get_by_id(session, 'users', user_id)
 
         if user.selected_court_id == court.id and totp_dict[court.id].verify(user.current_password):
             await message.answer(
-                f"Вы выбрали теннисный корт: {court.name}\n",
+                f"Вы выбрали теннисный {court.name}\n",
                 reply_markup=get_saverec_short_keyboard()
             )
             await state.set_state(SetupFSM.save_video)
@@ -178,7 +178,7 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
     if not totp_dict[user.court.id].verify(user.current_password):
         if user.court:
             await message.answer(
-                f"Текущий пароль неверен или истёк. Пожалуйста, введите новый пароль от корта {user.court.name}:",
+                expired_password_text + f"{user.court.name}",
                 reply_markup=get_back_keyboard()
             )
             await state.set_state(SetupFSM.input_password)
