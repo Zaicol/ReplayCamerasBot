@@ -9,7 +9,7 @@ def generate_password():
 
 
 def password_expiration_to_string(password_expiration_delta: timedelta) -> str:
-    return f"{(password_expiration_delta.seconds % 3600) // 60} мин. {password_expiration_delta.seconds % 60} с."
+    return f"{(password_expiration_delta.seconds % 3600) // 60} мин."
 
 
 def update_totp_dict(court) -> None:
