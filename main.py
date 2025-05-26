@@ -1,14 +1,9 @@
 import asyncio
 import os
-import threading
-from pathlib import Path
 
 from pyotp import TOTP
-from collections import deque
-
 from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
 from config.config import bot, dp, MAX_FRAMES, buffers, totp_dict, SEGMENT_DIR
-from utils.cameras import capture_video
 from utils import setup_logger
 from handlers import *
 
@@ -35,10 +30,10 @@ async def start_buffer(camera):
         "-segment_time", "5",
         "-segment_wrap", "15",
         "-reset_timestamps", "1",
+        "-loglevel", "error",
         str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
     ]
-    print(" ".join(cmd))
-    # не ждем завершения, процесс живет постоянно
+
     return await asyncio.create_subprocess_exec(*cmd)
 
 

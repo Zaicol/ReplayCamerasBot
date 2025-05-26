@@ -51,7 +51,6 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
     # Команда для склейки сегментов
     cmd = [
         "ffmpeg", "-y",
-        # "-report",                # можно включить для отладки
         "-f", "concat", "-safe", "0",
         "-i", str(inputs_txt),
         "-c", "copy",
