@@ -1,18 +1,19 @@
 import asyncio
 import os
 import threading
+from pathlib import Path
+
 from pyotp import TOTP
 from collections import deque
 
 from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
-from config.config import bot, dp, MAX_FRAMES, buffers, totp_dict
+from config.config import bot, dp, MAX_FRAMES, buffers, totp_dict, SEGMENT_DIR
 from utils.cameras import capture_video
 from utils import setup_logger
 from handlers import *
 
 # Настройка логгера
 logger = setup_logger()
-
 
 # Регистрация хэндлеров
 dp.include_router(start_router)
@@ -21,22 +22,44 @@ dp.include_router(user_router)
 dp.include_router(default_router)
 
 
+async def start_buffer(camera):
+    rtsp_url = (
+        f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
+        "/cam/realmonitor?channel=1&subtype=0"
+    )
+    # Запустим ffmpeg в фоновом процессе
+    cmd = [
+        "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
+        "-c", "copy", "-f", "segment",
+        "-fflags", "+genpts",
+        "-segment_time", "5",
+        "-segment_wrap", "15",
+        "-reset_timestamps", "1",
+        str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
+    ]
+    print(" ".join(cmd))
+    # не ждем завершения, процесс живет постоянно
+    return await asyncio.create_subprocess_exec(*cmd)
+
+
+async def on_startup() -> None:
+    async with AsyncSessionLocal() as session:
+        cameras: list[Cameras] = await get_all(session, 'cameras')
+
+    # Создание и запуск буфферов
+    for camera in cameras:
+        # Запуск захвата видео в отдельном потоке
+        asyncio.create_task(start_buffer(camera))
+        logger.info(f"Запущен поток захвата видео для камеры {camera.name}")
+
+
 # Запуск бота
 async def main():
     await init_models(engine)
 
     async with AsyncSessionLocal() as session:
-        cameras: list[Cameras] = await get_all(session, 'cameras')
         courts: list[Courts] = await get_all(session, 'courts')
         await set_secret_for_all_courts(session)
-
-    # Создание и запуск буфферов
-    buffers.update({camera.id: deque(maxlen=MAX_FRAMES) for camera in cameras})
-    for camera in cameras:
-        # Запуск захвата видео в отдельном потоке
-        capture_thread = threading.Thread(target=capture_video, args=(camera, buffers[camera.id]), daemon=True)
-        capture_thread.start()
-        logger.info(f"Запущен поток захвата видео для камеры {camera.name}")
 
     # Создание totp объектов
     for court in courts:
@@ -51,6 +74,7 @@ if __name__ == "__main__":
         f.write(str(os.getpid()))
 
     try:
+        dp.startup.register(on_startup)
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Бот остановлен пользователем")
