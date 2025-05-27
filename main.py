@@ -3,7 +3,7 @@ import os
 
 from pyotp import TOTP
 from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
-from config.config import bot, dp, MAX_FRAMES, buffers, totp_dict, SEGMENT_DIR
+from config.config import bot, dp, totp_dict, SEGMENT_DIR
 from utils import setup_logger
 from handlers import *
 
@@ -30,6 +30,8 @@ async def start_buffer(camera):
         "-i", str(watermark_path),
         "-i", str(watermark2_path),
         "-filter_complex", "[0:v][1:v]overlay=W-w-20:20[tmp];[tmp][2:v]overlay=20:H-h-20",
+        "-force_key_frames", "expr:gte(t,n_forced*5)",
+        "-g", "125",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
         "-c:a", "copy",
         "-f", "segment",
@@ -37,6 +39,7 @@ async def start_buffer(camera):
         "-segment_time", "5",
         "-segment_wrap", "15",
         "-reset_timestamps", "1",
+        "-fflags", "+genpts",
         "-loglevel", "error",
         str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
     ]

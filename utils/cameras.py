@@ -6,8 +6,8 @@ import logging
 from aiogram import types
 from aiogram.types import FSInputFile
 
-from config.config import VERSION, FPS, buffers, MAX_FRAMES, FRAME_WIDTH, FRAME_HEIGHT, SEGMENT_DIR
-from database.models import Cameras, Users
+from config.config import VERSION, MAX_FRAMES, SEGMENT_DIR
+from database.models import Users
 logger = logging.getLogger(__name__)
 
 logger.info(f"Максимальное количество кадров в буфере: {MAX_FRAMES}")
@@ -16,7 +16,7 @@ logger.info(f"Максимальное количество кадров в бу
 CREATE_NO_WINDOW = 0x08000000
 # Максимальное количество неудачных чтений ffmpeg
 MAX_BAD_READS = 20
-SEGMENT_TIME = 5  # секунда на один сегмент
+SEGMENT_TIME = 5
 
 
 async def save_video(user: Users, message: types.Message, seconds: int = 60):
