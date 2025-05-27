@@ -22,10 +22,17 @@ async def start_buffer(camera):
         f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
         "/cam/realmonitor?channel=1&subtype=0"
     )
+    watermark_path = os.path.join("media", "watermark.png")
+    watermark2_path = os.path.join("media", "watermark2.png")
     # Запустим ffmpeg в фоновом процессе
     cmd = [
         "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
-        "-c", "copy", "-f", "segment",
+        "-i", str(watermark_path),
+        "-i", str(watermark2_path),
+        "-filter_complex", "[0:v][1:v]overlay=W-w-20:20[tmp];[tmp][2:v]overlay=20:H-h-20",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-c:a", "copy",
+        "-f", "segment",
         "-fflags", "+genpts",
         "-segment_time", "5",
         "-segment_wrap", "15",
@@ -33,6 +40,8 @@ async def start_buffer(camera):
         "-loglevel", "error",
         str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
     ]
+
+    logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
     return await asyncio.create_subprocess_exec(*cmd)
 
