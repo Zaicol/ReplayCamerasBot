@@ -54,6 +54,7 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
         "-f", "concat", "-safe", "0",
         "-i", str(inputs_txt),
         "-c", "copy",
+        "-movflags", "+faststart",
         str(output_path)
     ]
 
