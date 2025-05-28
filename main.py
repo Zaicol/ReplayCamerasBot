@@ -29,18 +29,34 @@ async def start_buffer(camera):
         "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
         "-i", str(watermark_path),
         "-i", str(watermark2_path),
-        "-filter_complex", "[0:v][1:v]overlay=W-w-20:20[tmp];[tmp][2:v]overlay=20:H-h-20",
+
+        # Добавляем format=yuv420p для совместимости с iPhone
+        "-filter_complex", "[0:v][1:v]overlay=W-w-20:20[tmp];[tmp][2:v]overlay=20:H-h-20,format=yuv420p,scale=1280:720",
+
+        # Указываем правильное соотношение сторон
+        "-aspect", "16:9",
+
+        # Гарантируем ключевые кадры каждые 5 сек
         "-force_key_frames", "expr:gte(t,n_forced*5)",
         "-g", "125",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+
+        # Перекодируем видео
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+
+        # Аудио копируем
         "-c:a", "copy",
+
+        # Сегментация
         "-f", "segment",
         "-fflags", "+genpts",
         "-segment_time", "5",
         "-segment_wrap", "15",
         "-reset_timestamps", "1",
-        "-fflags", "+genpts",
+
+        # Без лишнего вывода
         "-loglevel", "error",
+
+        # Выходной файл
         str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
     ]
 
