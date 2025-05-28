@@ -31,7 +31,8 @@ async def start_buffer(camera):
         "-i", str(watermark2_path),
 
         # Добавляем format=yuv420p для совместимости с iPhone
-        "-filter_complex", "[0:v][1:v]overlay=W-w-20:20[tmp];[tmp][2:v]overlay=20:H-h-20,format=yuv420p,scale=1280:720",
+        "-filter_complex",
+        "[0:v][1:v]overlay=W-w-20:20[tmp];[tmp][2:v]overlay=20:H-h-20,format=yuv420p,scale=1920:1080",
 
         # Указываем правильное соотношение сторон
         "-aspect", "16:9",
