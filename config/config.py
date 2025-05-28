@@ -20,6 +20,8 @@ FRAME_HEIGHT = int(os.getenv('CAMERA_FRAME_HEIGHT', 0))
 MAX_FRAMES = BUFFER_DURATION * FPS
 SEGMENT_DIR = Path("segments")
 SEGMENT_DIR.mkdir(parents=True, exist_ok=True)
+PID_DIR = Path("ffmpeg_pid")
+PID_DIR.mkdir(parents=True, exist_ok=True)
 
 buffers: dict[int, deque] = {}
 totp_dict: dict[int, TOTP] = {}

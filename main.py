@@ -3,7 +3,7 @@ import os
 
 from pyotp import TOTP
 from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
-from config.config import bot, dp, totp_dict, SEGMENT_DIR
+from config.config import bot, dp, totp_dict, SEGMENT_DIR, PID_DIR
 from utils import setup_logger
 from handlers import *
 
@@ -33,7 +33,7 @@ async def start_buffer(camera):
         "[0:v][1:v]overlay=0:0,format=yuv420p,scale=1920:1080",
 
         # Указываем правильное соотношение сторон
-        "-aspect", "16:9",
+        "-aspect", "1920:1080",
 
         # Гарантируем ключевые кадры каждые 5 сек
         "-force_key_frames", "expr:gte(t,n_forced*5)",
@@ -53,7 +53,7 @@ async def start_buffer(camera):
         "-reset_timestamps", "1",
 
         # Без лишнего вывода
-        "-loglevel", "error",
+        "-loglevel", "warning",
 
         # Выходной файл
         str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
@@ -61,7 +61,14 @@ async def start_buffer(camera):
 
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 
-    return await asyncio.create_subprocess_exec(*cmd)
+    while True:
+        process = await asyncio.create_subprocess_exec(*cmd)
+        with open(PID_DIR / f"ffmpeg_{camera.id}.pid", "w+") as pid_f:
+            pid_f.write(str(process.pid))
+        await process.wait()
+
+        logger.warning(f"FFmpeg завершил работу для камеры {camera.name}. Перезапуск через 5 секунд.")
+        await asyncio.sleep(5)
 
 
 async def on_startup() -> None:

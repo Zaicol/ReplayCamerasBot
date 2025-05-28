@@ -1,4 +1,5 @@
 import os
+import subprocess
 from datetime import timedelta
 
 from aiogram import types, Router
@@ -252,3 +253,15 @@ async def cmd_stats(message: types.Message):
 
     response = f"Количество видео за сегодня: {videos_count}\nОбщее число пользователей: {users_count}"
     await message.answer(response)
+
+
+@admin_router.message(Command("restart"))
+async def restart_command(message: types.Message):
+    if not os.path.exists("restart_bot.sh"):
+        await message.reply("Файл скрипта перезапуска не найден.")
+        return
+
+    await message.reply("Перезапускаю бота...")
+
+    # Запуск скрипта перезапуска
+    subprocess.Popen(["/bin/bash", "restart_bot.sh"])
