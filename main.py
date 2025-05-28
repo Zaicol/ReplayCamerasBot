@@ -22,17 +22,15 @@ async def start_buffer(camera):
         f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
         "/cam/realmonitor?channel=1&subtype=0"
     )
-    watermark_path = os.path.join("media", "watermark.png")
-    watermark2_path = os.path.join("media", "watermark2.png")
+    watermark_path = os.path.join("media", "watermark_full.png")
     # Запустим ffmpeg в фоновом процессе
     cmd = [
         "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
         "-i", str(watermark_path),
-        "-i", str(watermark2_path),
 
         # Добавляем format=yuv420p для совместимости с iPhone
         "-filter_complex",
-        "[0:v][1:v]overlay=W-w-20:20[tmp];[tmp][2:v]overlay=20:H-h-20,format=yuv420p,scale=1920:1080",
+        "[0:v][1:v]overlay=0:0,format=yuv420p,scale=1920:1080",
 
         # Указываем правильное соотношение сторон
         "-aspect", "16:9",
@@ -42,7 +40,7 @@ async def start_buffer(camera):
         "-g", "125",
 
         # Перекодируем видео
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
 
         # Аудио копируем
         "-c:a", "copy",
