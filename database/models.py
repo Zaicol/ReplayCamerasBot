@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -8,7 +8,7 @@ Base = declarative_base()
 
 class Users(Base):
     __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)  # Telegram user ID
+    id = Column(BigInteger, primary_key=True)  # Telegram user ID
     access_level = Column(Integer, default=0)  # 0 - no access, 1 - view, 2 - save and view
     current_password = Column(String, nullable=True)
     selected_court_id = Column(Integer, ForeignKey('courts.id'), nullable=True)
@@ -22,7 +22,7 @@ class Videos(Base):
     video_id = Column(String, nullable=False)  # Telegram file ID
     description = Column(String, nullable=True)
     timestamp = Column(DateTime, nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)
     court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
     public = Column(Boolean, nullable=False, default=False)
 
