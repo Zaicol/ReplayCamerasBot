@@ -20,7 +20,7 @@ def get_model(table: str):
 
 async def get_all(session: AsyncSession, table: str):
     model = get_model(table)
-    result = await session.execute(select(model))
+    result = await session.execute(select(model).order_by(model.id))
     return result.scalars().all()
 
 
@@ -45,6 +45,7 @@ async def get_first(session: AsyncSession, table: str):
     model = get_model(table)
     result = await session.execute(select(model))
     return result.scalars().first()
+
 
 async def get_by_id(session: AsyncSession, table: str, record_id: int):
     model = get_model(table)

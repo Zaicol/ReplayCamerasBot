@@ -11,7 +11,7 @@ class Users(Base):
     id = Column(BigInteger, primary_key=True)  # Telegram user ID
     access_level = Column(Integer, default=0)  # 0 - no access, 1 - view, 2 - save and view
     current_password = Column(String, nullable=True)
-    selected_court_id = Column(Integer, ForeignKey('courts.id'), nullable=True)
+    selected_court_id = Column(Integer, ForeignKey('courts.id', onupdate='CASCADE'), nullable=True)
     court = relationship('Courts', back_populates='users', lazy="selectin")
     videos = relationship('Videos', back_populates='user', lazy="selectin")
 
@@ -22,8 +22,8 @@ class Videos(Base):
     video_id = Column(String, nullable=False)  # Telegram file ID
     description = Column(String, nullable=True)
     timestamp = Column(DateTime, nullable=False)
-    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)
-    court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', onupdate='CASCADE'), nullable=False)
+    court_id = Column(Integer, ForeignKey('courts.id', onupdate='CASCADE'), nullable=False)
     public = Column(Boolean, nullable=False, default=False)
 
     user = relationship('Users', back_populates='videos', lazy="selectin")
@@ -49,7 +49,7 @@ class Cameras(Base):
     password = Column(String, nullable=False)
     ip = Column(String, nullable=False)
     port = Column(Integer, nullable=False)
-    court_id = Column(Integer, ForeignKey('courts.id'), nullable=False)
+    court_id = Column(Integer, ForeignKey('courts.id', onupdate='CASCADE'), nullable=False)
     court = relationship('Courts', back_populates='cameras', lazy="selectin")
 
 
