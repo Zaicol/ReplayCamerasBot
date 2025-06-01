@@ -58,6 +58,8 @@ async def process_court_selection(message: types.Message, state: FSMContext):
 
         if ((user.selected_court_id == court.id and totp_dict[court.id].verify(user.current_password))
                 or user.access_level >= 2):  # Админы могут выбирать любой корт
+            user.selected_court_id = court.id
+            await session.commit()
             await message.answer(
                 f"Вы выбрали теннисный {court.name}\n",
                 reply_markup=get_saverec_short_keyboard()
@@ -163,7 +165,6 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
 
         if message.text == yes_text:
             last_video = await get_last_video(session, message.from_user.id)
-            ic(last_video)
             if last_video is None:
                 await message.answer(error_text)
                 return
