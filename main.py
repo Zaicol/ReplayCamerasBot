@@ -91,7 +91,7 @@ async def start_buffer(camera):
 
         # Параллельно логируем stdout и stderr
         await asyncio.gather(
-            log_stream(process.stdout, logger.info, camera.name),
+            # log_stream(process.stdout, logger.info, camera.name),
             log_stream(process.stderr, logger.warning, camera.name),
             process.wait()
         )
