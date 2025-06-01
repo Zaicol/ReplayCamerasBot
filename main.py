@@ -26,38 +26,48 @@ async def start_buffer(camera):
     # Запустим ffmpeg в фоновом процессе
     cmd = [
         "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
-        "-i", str(watermark_path),
-
-        # Добавляем format=yuv420p для совместимости с iPhone
-        "-filter_complex",
-        "[0:v][1:v]overlay=0:0,format=yuv420p,scale=1920:1080",
-
+        "-c", "copy", "-f", "segment",
         # Указываем правильное соотношение сторон
-        "-aspect", "1920:1080",
+        "-aspect", "16:9",
 
-        # Гарантируем ключевые кадры каждые 5 сек
-        "-force_key_frames", "expr:gte(t,n_forced*5)",
-        "-g", "125",
-
-        # Перекодируем видео
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
-
-        # Аудио копируем
-        "-c:a", "copy",
-
-        # Сегментация
-        "-f", "segment",
         "-fflags", "+genpts",
         "-segment_time", "5",
         "-segment_wrap", "15",
         "-reset_timestamps", "1",
-
-        # Без лишнего вывода
-        "-loglevel", "warning",
-
-        # Выходной файл
+        "-loglevel", "info",
         str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
     ]
+    # cmd = [
+    #     "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
+    #     "-i", str(watermark_path),
+    #
+    #     # Добавляем format=yuv420p для совместимости с iPhone
+    #     "-filter_complex",
+    #     "[0:v][1:v]overlay=0:0,format=yuv420p,scale=1920:1080",
+    #
+    #     # Гарантируем ключевые кадры каждые 5 сек
+    #     "-force_key_frames", "expr:gte(t,n_forced*5)",
+    #     "-g", "125",
+    #
+    #     # Перекодируем видео
+    #     "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+    #
+    #     # Аудио копируем
+    #     "-c:a", "copy",
+    #
+    #     # Сегментация
+    #     "-f", "segment",
+    #     "-fflags", "+genpts",
+    #     "-segment_time", "5",
+    #     "-segment_wrap", "15",
+    #     "-reset_timestamps", "1",
+    #
+    #     # Без лишнего вывода
+    #     "-loglevel", "warning",
+    #
+    #     # Выходной файл
+    #     str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
+    # ]
 
     logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
 

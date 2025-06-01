@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import asyncio
@@ -19,6 +20,29 @@ MAX_BAD_READS = 20
 SEGMENT_TIME = 5
 
 
+async def get_video_resolution(video_path):
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "json",
+        str(video_path)
+    ]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    out, err = await proc.communicate()
+
+    info = json.loads(out)
+    width = info['streams'][0]['width']
+    height = info['streams'][0]['height']
+    return width, height
+
+
 async def save_video(user: Users, message: types.Message, seconds: int = 60):
     # Определяем количество сегментов, которое нужно собрать
     count = (seconds + SEGMENT_TIME - 1) // SEGMENT_TIME
@@ -37,6 +61,10 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
     # Берём последние count сегментов в хронологическом порядке
     last_segs = segs[-count:]
 
+    # Получаем разрешение первого сегмента
+    width, height = await get_video_resolution(last_segs[0])
+    watermark_file = "media/" + ("watermark_1080.png" if height >= 1080 else "watermark_720.png")
+
     # Готовим файл inputs.txt с абсолютными путями
     inputs_txt = Path("inputs.txt")
     with inputs_txt.open("w", encoding="utf-8") as f:
@@ -45,17 +73,19 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
             f.write(f"file '{abs_path}'\n")
 
     # Итоговый путь для сохранения видео
+    output_concat_filename = f"video_camera_{camera_id}_user_{user.id}_concat.mp4"
+    output_concat_path = SEGMENT_DIR / output_concat_filename
     output_filename = f"video_camera_{camera_id}_user_{user.id}.mp4"
     output_path = SEGMENT_DIR / output_filename
 
-    # Команда для склейки сегментов
+    # Шаг 1: Склеиваем сегменты
     cmd = [
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0",
         "-i", str(inputs_txt),
         "-c", "copy",
         "-movflags", "+faststart",
-        str(output_path)
+        str(output_concat_path)
     ]
 
     # Запускаем процесс и ждём завершения
@@ -66,14 +96,33 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
     )
     out, err = await proc.communicate()
 
-    # Если нужно отладить, раскомментируйте:
-    # print("FFmpeg stdout:\n", out.decode(errors="ignore"))
-    # print("FFmpeg stderr:\n", err.decode(errors="ignore"))
-
     if proc.returncode != 0:
         logger.error(f"FFmpeg concat failed:\n{err.decode(errors='ignore')}")
         await message.answer("Не удалось собрать видео.")
         return
 
-    # Возвращаем готовое видео
+    # Шаг 2: Наложение водяного знака
+    cmd_overlay = [
+        "ffmpeg", "-y",
+        "-i", str(output_concat_path),
+        "-i", watermark_file,
+        "-filter_complex", "overlay=0:0",
+        "-movflags", "+faststart",
+        "-c:a", "copy",
+        str(output_path)
+    ]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd_overlay,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    out, err = await proc.communicate()
+
+    if proc.returncode != 0:
+        logger.error(f"FFmpeg overlay failed:\n{err.decode(errors='ignore')}")
+        await message.answer("Не удалось наложить водяной знак.")
+        return
+
     return FSInputFile(str(output_path))
+
