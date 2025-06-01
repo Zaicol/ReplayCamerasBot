@@ -280,7 +280,7 @@ async def restart_command(message: types.Message):
 
 
 @admin_router.message(Command("gitpull"))
-async def restart_command(message: types.Message):
+async def gitpull_command(message: types.Message):
     try:
         # Запускаем git pull и получаем вывод
         process = await asyncio.create_subprocess_exec(
@@ -306,3 +306,16 @@ async def restart_command(message: types.Message):
 
     except Exception as e:
         await message.answer(f"❌ Ошибка при выполнении команды: {e}")
+
+
+@admin_router.message(Command("rmlogs"))
+async def cmd_rmlogs(message: types.Message):
+    try:
+        os.remove("logs/bot.log")
+        os.remove("logs/ffmpeg.log")
+        # создаём обратно
+        open("logs/bot.log", "w").close()
+        open("logs/ffmpeg.log", "w").close()
+        await message.answer("Логи удалены.")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при удалении логов: {e}")

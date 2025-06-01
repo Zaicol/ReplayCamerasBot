@@ -10,6 +10,9 @@ def setup_logger(logger_name: str = None):
     # Создаем логгер
     if logger_name:
         logger = logging.getLogger(logger_name)
+        logger.propagate = False
+        if logger.hasHandlers():
+            logger.handlers.clear()
     else:
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)  # Устанавливаем уровень логгирования
