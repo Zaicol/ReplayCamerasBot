@@ -56,7 +56,8 @@ async def process_court_selection(message: types.Message, state: FSMContext):
 
         user = await get_by_id(session, 'users', user_id)
 
-        if user.selected_court_id == court.id and totp_dict[court.id].verify(user.current_password):
+        if ((user.selected_court_id == court.id and totp_dict[court.id].verify(user.current_password))
+                or user.access_level >= 2):  # Админы могут выбирать любой корт
             await message.answer(
                 f"Вы выбрали теннисный {court.name}\n",
                 reply_markup=get_saverec_short_keyboard()
