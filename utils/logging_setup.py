@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 os.makedirs("logs", exist_ok=True)
 
 
-def setup_logger(logger_name):
+def setup_logger(logger_name: str = None):
     # Создаем логгер
     if logger_name:
         logger = logging.getLogger(logger_name)
