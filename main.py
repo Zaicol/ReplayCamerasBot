@@ -17,6 +17,14 @@ dp.include_router(user_router)
 dp.include_router(default_router)
 
 
+async def log_stream(stream, log_func, camera_name):
+    while True:
+        line = await stream.readline()
+        if not line:
+            break
+        log_func(f"[{camera_name}] {line.decode(errors='ignore').strip()}")
+
+
 async def start_buffer(camera):
     rtsp_url = (
         f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
@@ -69,13 +77,24 @@ async def start_buffer(camera):
     #     str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
     # ]
 
-    logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
-
     while True:
-        process = await asyncio.create_subprocess_exec(*cmd)
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
         with open(PID_DIR / f"ffmpeg_{camera.id}.pid", "w+") as pid_f:
             pid_f.write(str(process.pid))
-        await process.wait()
+
+        logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
+
+        # Параллельно логируем stdout и stderr
+        await asyncio.gather(
+            log_stream(process.stdout, logger.info, camera.name),
+            log_stream(process.stderr, logger.warning, camera.name),
+            process.wait()
+        )
 
         logger.warning(f"FFmpeg завершил работу для камеры {camera.name}. Перезапуск через 5 секунд.")
         await asyncio.sleep(5)
