@@ -24,8 +24,8 @@ def setup_logger():
 
     # Файловый обработчик (ротация по размеру файла)
     file_handler = RotatingFileHandler(
-        "logs/bot.log", maxBytes=5 * 1024 * 1024, backupCount=3
-    )  # Максимальный размер файла: 5MB, сохраняем последние 3 файла
+        "logs/bot.log", maxBytes=2 * 1024 * 1024, backupCount=20
+    )  # Максимальный размер файла: 2MB, сохраняем последние 20 файлов
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
