@@ -176,7 +176,7 @@ async def cmd_saverec(message: types.Message, state: FSMContext):
             return
 
     # Проверка на истекший пароль
-    if not totp_dict[user.court.id].verify(user.current_password):
+    if not totp_dict[user.court.id].verify(user.current_password) and user.access_level < 2:
         if user.court:
             await message.answer(
                 expired_password_text + f"{user.court.name}",
