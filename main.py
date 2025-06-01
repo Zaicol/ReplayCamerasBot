@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 
 from pyotp import TOTP
@@ -9,6 +10,8 @@ from handlers import *
 
 # Настройка логгера
 logger = setup_logger()
+# Новый логгер
+logger_ffmpeg = setup_logger("ffmpeg")
 
 # Регистрация хэндлеров
 dp.include_router(start_router)
@@ -37,8 +40,6 @@ async def start_buffer(camera):
         "-c", "copy", "-f", "segment",
         # Указываем правильное соотношение сторон
         "-aspect", "16:9",
-
-        "-fflags", "+genpts",
         "-segment_time", "5",
         "-segment_wrap", "15",
         "-reset_timestamps", "1",
@@ -92,7 +93,7 @@ async def start_buffer(camera):
         # Параллельно логируем stdout и stderr
         await asyncio.gather(
             # log_stream(process.stdout, logger.info, camera.name),
-            # log_stream(process.stderr, logger.warning, camera.name),
+            log_stream(process.stderr, logger_ffmpeg.warning, camera.name),
             process.wait()
         )
 

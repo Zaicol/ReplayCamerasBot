@@ -6,10 +6,13 @@ from logging.handlers import RotatingFileHandler
 os.makedirs("logs", exist_ok=True)
 
 
-def setup_logger():
+def setup_logger(logger_name):
     # Создаем логгер
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)  # Устанавливаем уровень логгирования
+    if logger_name:
+        logger = logging.getLogger(logger_name)
+    else:
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)  # Устанавливаем уровень логгирования
     # logging.getLogger("aiogram").setLevel(logging.WARNING)
 
     # Форматтер для логов
@@ -23,8 +26,9 @@ def setup_logger():
     logger.addHandler(console_handler)
 
     # Файловый обработчик (ротация по размеру файла)
+    filename = f"logs/{logger_name}.log" if logger_name else "logs/bot.log"
     file_handler = RotatingFileHandler(
-        "logs/bot.log", maxBytes=2 * 1024 * 1024, backupCount=20
+        filename, maxBytes=2 * 1024 * 1024, backupCount=20
     )  # Максимальный размер файла: 2MB, сохраняем последние 20 файлов
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)

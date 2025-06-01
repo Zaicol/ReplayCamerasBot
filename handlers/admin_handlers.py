@@ -245,6 +245,17 @@ async def cmd_logs(message: types.Message):
     except Exception as e:
         await message.answer(f"Ошибка при отправке файла: {e}")
 
+    ffmpeg_log_path = "logs/ffmpeg.log"
+    if not os.path.exists(ffmpeg_log_path):
+        await message.answer("Файл логов ffmpeg не найден.")
+        return
+
+    try:
+        ffmpeg_log_file = FSInputFile(ffmpeg_log_path)
+        await message.answer_document(ffmpeg_log_file, caption="Файл логов ffmpeg:")
+    except Exception as e:
+        await message.answer(f"Ошибка при отправке файла ffmpeg: {e}")
+
 
 @admin_router.message(Command("stats"))
 async def cmd_stats(message: types.Message):
