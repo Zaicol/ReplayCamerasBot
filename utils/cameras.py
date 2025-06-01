@@ -62,7 +62,12 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
     last_segs = segs[-count:]
 
     # Получаем разрешение первого сегмента
-    width, height = await get_video_resolution(last_segs[0])
+    try:
+        width, height = await get_video_resolution(last_segs[0])
+    except Exception as e:
+        logger.error(f"Не удалось получить разрешение видео: {str(e)}", exc_info=True)
+        await message.answer("Не получилось сохранить видео.")
+        return
     watermark_file = "media/" + ("watermark_1080.png" if height >= 1080 else "watermark_720.png")
 
     # Готовим файл inputs.txt с абсолютными путями
