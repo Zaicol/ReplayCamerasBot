@@ -1,3 +1,4 @@
+import asyncio
 import os
 import subprocess
 from datetime import timedelta
@@ -265,3 +266,32 @@ async def restart_command(message: types.Message):
 
     # Запуск скрипта перезапуска
     subprocess.Popen(["/bin/bash", "restart_bot.sh"])
+
+
+@admin_router.message(Command("gitpull"))
+async def restart_command(message: types.Message):
+    try:
+        # Запускаем git pull и получаем вывод
+        process = await asyncio.create_subprocess_exec(
+            "git", "pull",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+
+        # Формируем ответ
+        output = ""
+        if stdout:
+            output += f"✅ stdout:\n{stdout.decode().strip()}\n"
+        if stderr:
+            output += f"⚠️ stderr:\n{stderr.decode().strip()}"
+        if not output:
+            output = "😶 Нет вывода от git pull"
+
+        # Отправляем пользователю (с ограничением на длину сообщения)
+        if len(output) > 4000:
+            output = output[:4000] + "\n... (вывод обрезан)"
+        await message.answer(f"<pre>{output}</pre>", parse_mode="HTML")
+
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при выполнении команды: {e}")
