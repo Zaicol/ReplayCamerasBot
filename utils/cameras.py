@@ -21,6 +21,30 @@ MAX_BAD_READS = 20
 SEGMENT_TIME = 5
 
 
+async def check_rtsp_connection(camera, timeout: int = 5) -> bool:
+    rtsp_url = (
+        f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
+        "/cam/realmonitor?channel=1&subtype=0"
+    )
+
+    cmd = [
+        "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
+        "-t", "1",              # Читаем 1 секунду потока
+        "-f", "null", "-"       # Выводим в никуда (null)
+    ]
+
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL
+        )
+        await asyncio.wait_for(process.communicate(), timeout=timeout)
+        return process.returncode == 0
+    except (asyncio.TimeoutError, Exception):
+        return False
+
+
 async def get_video_resolution(video_path):
     cmd = [
         "ffprobe",

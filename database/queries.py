@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, time
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, distinct
 from pyotp import random_base32
 
 from utils import update_totp_dict
@@ -38,6 +38,17 @@ async def get_videos_by_date_count(session: AsyncSession) -> int:
         .select_from(Videos)
         .where(Videos.timestamp >= today_start)
     )
+    return result.scalar()
+
+
+async def get_distinct_users_today(session: AsyncSession) -> int:
+    today_start = datetime.combine(datetime.now().date(), time.min)
+
+    result = await session.execute(
+        select(func.count(distinct(Videos.user_id)))
+        .where(Videos.timestamp >= today_start)
+    )
+
     return result.scalar()
 
 

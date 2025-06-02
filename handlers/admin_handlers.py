@@ -1,5 +1,6 @@
 import asyncio
 import os
+import signal
 import subprocess
 from datetime import timedelta
 
@@ -8,9 +9,10 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
-from config.config import totp_dict
+from config.config import totp_dict, last_restart, PID_DIR
 from database import *
 from utils import generate_password, get_totp_for_all_day
+from utils.cameras import check_rtsp_connection
 from utils.filters import IsUserAdmin
 from utils.states import *
 
@@ -150,7 +152,6 @@ async def cmd_update_password(message: types.Message):
 
 @admin_router.message(Command("show_passwords"))
 async def cmd_show_passwords(message: types.Message):
-
     async with AsyncSessionLocal() as session:
         if await get_count(session, 'courts') == 1:
             court = await get_first(session, 'courts')
@@ -261,10 +262,43 @@ async def cmd_logs(message: types.Message):
 async def cmd_stats(message: types.Message):
     async with AsyncSessionLocal() as session:
         videos_count = await get_videos_by_date_count(session)
+        users_today_count = await get_distinct_users_today(session)
         users_count = await get_count(session, 'users')
 
-    response = f"Количество видео за сегодня: {videos_count}\nОбщее число пользователей: {users_count}"
+    response = (
+        f"Количество видео за сегодня: {videos_count}\n"
+        f"Количество пользователей за сегодня: {users_today_count}\n"
+        f"Общее число пользователей: {users_count}\n"
+        f"Время последнего перезапуска бота: {last_restart.strftime('%Y-%m-%d %H:%M:%S')}"
+    )
     await message.answer(response)
+
+
+@admin_router.message(Command("check_connection"))
+async def cmd_check_connection(message: types.Message):
+    timeout = message.text.split()[1] if len(message.text.split()) > 1 else 5
+    try:
+        timeout = int(timeout)
+    except ValueError:
+        await message.answer("Некорректное значение таймаута.")
+        return
+
+    await message.answer(f"Проверка подключения к потокам (таймаут: {timeout} сек.)...")
+    result_message = "Результаты:\n"
+    try:
+        async with AsyncSessionLocal() as session:
+            cameras = await get_all(session, 'cameras')
+            tasks = [check_rtsp_connection(camera, timeout) for camera in cameras]
+            results = await asyncio.gather(*tasks)
+            for camera, result in zip(cameras, results):
+                if result:
+                    result_message += f"{camera.name} - ✅\n"
+                else:
+                    result_message += f"{camera.name} - ❌\n"
+
+        await message.answer(result_message)
+    except Exception as e:
+        await message.answer(f"Произошла ошибка: {str(e)}")
 
 
 @admin_router.message(Command("restart"))
@@ -319,3 +353,21 @@ async def cmd_rmlogs(message: types.Message):
         await message.answer("Логи удалены.")
     except Exception as e:
         await message.answer(f"❌ Ошибка при удалении логов: {e}")
+
+
+@admin_router.message(Command("kill"))
+async def cmd_kill(message: types.Message):
+    if message.from_user.username != "Zaicol":
+        logger.error(f"Пользователь {message.from_user.username} (ID: {message.from_user.id}) пытался остановить бота")
+        await message.answer("Только администратор может использовать эту команду.")
+        return
+    try:
+        # убиваем ffmpeg процессы
+        for pid_file in os.listdir(PID_DIR):
+            with open(os.path.join(PID_DIR, pid_file), 'r') as f:
+                pid = int(f.read())
+                os.kill(pid, signal.SIGINT)
+        os.kill(os.getpid(), signal.SIGINT)
+        await message.answer("Бот остановлен.")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при остановке бота: {e}")

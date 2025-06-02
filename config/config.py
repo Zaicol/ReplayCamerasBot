@@ -1,5 +1,6 @@
 import os
 from collections import deque
+from datetime import datetime
 from pathlib import Path
 
 from aiogram import Dispatcher, Bot
@@ -31,3 +32,5 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+
+last_restart = datetime.now()
