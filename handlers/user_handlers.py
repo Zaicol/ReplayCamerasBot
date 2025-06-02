@@ -140,6 +140,7 @@ async def save_and_send_video(user: Users, message: types.Message) -> bool:
 
     try:
         os.remove(video_file.path)
+        os.remove(video_file.path.replace('.mp4', '_concat.mp4'))
     except Exception as e:
         logging.error(f"Ошибка при удалении файла: {e}")
 
