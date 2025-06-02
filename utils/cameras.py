@@ -9,6 +9,7 @@ from aiogram.types import FSInputFile
 
 from config.config import VERSION, MAX_FRAMES, SEGMENT_DIR
 from database.models import Users
+
 logger = logging.getLogger(__name__)
 
 logger.info(f"Максимальное количество кадров в буфере: {MAX_FRAMES}")
@@ -111,9 +112,13 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
         "ffmpeg", "-y",
         "-i", str(output_concat_path),
         "-i", watermark_file,
-        "-filter_complex", "overlay=0:0",
+        "-filter_complex",
+        (
+            "[0:v][1:v]overlay=0:0,setsar=1,setdar=16/9"
+        ),
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-an",
         "-movflags", "+faststart",
-        "-c:a", "copy",
         str(output_path)
     ]
 
@@ -130,4 +135,3 @@ async def save_video(user: Users, message: types.Message, seconds: int = 60):
         return
 
     return FSInputFile(str(output_path))
-
