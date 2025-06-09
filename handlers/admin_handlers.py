@@ -9,7 +9,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
-from config.config import totp_dict, last_restart, PID_DIR
+from config.config import totp_dict, LAST_RESTART, PID_DIR
 from database import *
 from utils import generate_password, get_totp_for_all_day
 from utils.cameras import check_rtsp_connection
@@ -275,7 +275,7 @@ async def cmd_stats(message: types.Message):
         f"👤 Пользователей: <b>{only_users_today_count}</b>\n"
         f"📽️ Видео: <b>{only_user_videos_count}</b>\n\n"
         f"🌐 Общее число пользователей: <b>{users_count}</b>\n"
-        f"♻️ Последний перезапуск бота: <b>{last_restart.strftime('%Y-%m-%d %H:%M:%S')}</b>"
+        f"♻️ Последний перезапуск бота: <b>{LAST_RESTART.strftime('%Y-%m-%d %H:%M:%S')}</b>"
     )
     await message.answer(response, parse_mode="HTML")
 

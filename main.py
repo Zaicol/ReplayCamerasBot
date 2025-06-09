@@ -3,9 +3,9 @@ import os
 
 from pyotp import TOTP
 from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
+from handlers import start_router, admin_router, user_router, default_router
 from config.config import bot, dp, totp_dict
 from utils import setup_logger
-from handlers import *
 from utils.cameras import start_buffer
 
 # Настройка логгера
@@ -19,25 +19,24 @@ dp.include_router(default_router)
 
 
 async def on_startup() -> None:
+    """Функция, вызываемая при запуске бота. Запускает буферы для камер."""
     async with AsyncSessionLocal() as session:
         cameras: list[Cameras] = await get_all(session, 'cameras')
 
-    # Создание и запуск буфферов
     for camera in cameras:
-        # Запуск захвата видео в отдельном потоке
         asyncio.create_task(start_buffer(camera))
         logger.info(f"Запущен поток захвата видео для камеры {camera.name}")
 
 
-# Запуск бота
 async def main():
+    """Основная асинхронная точка входа."""
     await init_models(engine)
 
     async with AsyncSessionLocal() as session:
         courts: list[Courts] = await get_all(session, 'courts')
         await set_secret_for_all_courts(session)
 
-    # Создание totp объектов
+    # Создание TOTP объектов для всех кортов
     for court in courts:
         totp_dict[court.id] = TOTP(court.totp_secret, interval=3600, digits=4)
 
@@ -46,10 +45,12 @@ async def main():
 
 
 if __name__ == "__main__":
+    # Сохранение PID в файл для отслеживания процесса
     with open("bot.pid", "w") as f:
         f.write(str(os.getpid()))
 
     try:
+        # Регистрация функции старта
         dp.startup.register(on_startup)
         asyncio.run(main())
     except KeyboardInterrupt:
