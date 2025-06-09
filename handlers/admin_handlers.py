@@ -262,16 +262,22 @@ async def cmd_logs(message: types.Message):
 async def cmd_stats(message: types.Message):
     async with AsyncSessionLocal() as session:
         videos_count = await get_videos_by_date_count(session)
+        only_user_videos_count = await get_videos_by_date_count(session, True)
         users_today_count = await get_distinct_users_today(session)
+        only_users_today_count = await get_distinct_users_today(session, True)
         users_count = await get_count(session, 'users')
 
     response = (
-        f"Количество видео за сегодня: {videos_count}\n"
-        f"Количество пользователей за сегодня: {users_today_count}\n"
-        f"Общее число пользователей: {users_count}\n"
-        f"Время последнего перезапуска бота: {last_restart.strftime('%Y-%m-%d %H:%M:%S')}"
+        "📊 <b>Статистика за сегодня:</b>\n"
+        f"👥 Пользователей: <b>{users_today_count}</b>\n"
+        f"🎥 Видео: <b>{videos_count}</b>\n\n"
+        "🔒 <b>Без учёта админов:</b>\n"
+        f"👤 Пользователей: <b>{only_users_today_count}</b>\n"
+        f"📽️ Видео: <b>{only_user_videos_count}</b>\n\n"
+        f"🌐 Общее число пользователей: <b>{users_count}</b>\n"
+        f"♻️ Последний перезапуск бота: <b>{last_restart.strftime('%Y-%m-%d %H:%M:%S')}</b>"
     )
-    await message.answer(response)
+    await message.answer(response, parse_mode="HTML")
 
 
 @admin_router.message(Command("check_connection"))

@@ -30,25 +30,41 @@ async def get_count(session: AsyncSession, table: str) -> int:
     return result.scalar()
 
 
-async def get_videos_by_date_count(session: AsyncSession) -> int:
+async def get_videos_by_date_count(session: AsyncSession, without_admins: bool = False) -> int:
     # Возвращает количество записанных сегодня видео
     today_start = datetime.combine(datetime.now().date(), time.min)
-    result = await session.execute(
-        select(func.count())
-        .select_from(Videos)
-        .where(Videos.timestamp >= today_start)
-    )
+    admin_ids = [
+        289208255,   # @zaicol
+        405773902,   # @rush_B
+        418845150,   # @bokoyoko
+        460205942,   # @matveishapilov
+        6761826627,  # @alex_bokoev
+    ]
+    select_statement = select(func.count()).select_from(Videos).where(Videos.timestamp >= today_start)
+
+    if without_admins:
+        select_statement = select_statement.where(Videos.user_id.notin_(admin_ids))
+
+    result = await session.execute(select_statement)
     return result.scalar()
 
 
-async def get_distinct_users_today(session: AsyncSession) -> int:
+async def get_distinct_users_today(session: AsyncSession, without_admins: bool = False) -> int:
     today_start = datetime.combine(datetime.now().date(), time.min)
 
-    result = await session.execute(
-        select(func.count(distinct(Videos.user_id)))
-        .where(Videos.timestamp >= today_start)
-    )
+    select_statement = select(func.count(distinct(Videos.user_id))).where(Videos.timestamp >= today_start)
 
+    if without_admins:
+        admin_ids = [
+            289208255,   # @zaicol
+            405773902,   # @rush_B
+            418845150,   # @bokoyoko
+            460205942,   # @matveishapilov
+            6761826627,  # @alex_bokoev
+        ]
+        select_statement = select_statement.where(Videos.user_id.notin_(admin_ids))
+
+    result = await session.execute(select_statement)
     return result.scalar()
 
 
@@ -109,7 +125,8 @@ async def check_and_create_user(local_session: AsyncSession, user_id: int, acces
         local_session.add(user)
         await local_session.commit()
         await local_session.refresh(user)
-        logger.warn(f"Пользователь {user_id} создан c привилегиями {access_level}. Текущий уровень у юзера: {user.access_level}")
+        logger.warning(f"Пользователь {user_id} создан c привилегиями {access_level}. "
+                       f"Текущий уровень у юзера: {user.access_level}")
     return user
 
 
