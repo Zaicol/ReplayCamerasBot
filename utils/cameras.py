@@ -7,10 +7,12 @@ import logging
 from aiogram import types
 from aiogram.types import FSInputFile
 
-from config.config import VERSION, MAX_FRAMES, SEGMENT_DIR
+from config.config import VERSION, MAX_FRAMES, SEGMENT_DIR, PID_DIR
 from database.models import Users
+from utils import setup_logger
 
 logger = logging.getLogger(__name__)
+logger_ffmpeg = setup_logger("ffmpeg")
 
 logger.info(f"Максимальное количество кадров в буфере: {MAX_FRAMES}")
 
@@ -43,6 +45,56 @@ async def check_rtsp_connection(camera, timeout: int = 5) -> bool:
         return process.returncode == 0
     except (asyncio.TimeoutError, Exception):
         return False
+
+
+async def log_stream(stream, log_func, camera_name):
+    while True:
+        line = await stream.readline()
+        if not line:
+            break
+        log_func(f"[{camera_name}] {line.decode(errors='ignore').strip()}")
+
+
+async def start_buffer(camera):
+    rtsp_url = (
+        f"rtsp://{camera.login}:{camera.password}@{camera.ip}:{camera.port}"
+        "/cam/realmonitor?channel=1&subtype=0"
+    )
+
+    # Запустим ffmpeg в фоновом процессе
+    cmd = [
+        "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
+        "-c", "copy", "-f", "segment",
+        # Указываем правильное соотношение сторон
+        "-aspect", "16:9",
+        "-segment_time", "5",
+        "-segment_wrap", "15",
+        "-reset_timestamps", "1",
+        "-loglevel", "info",
+        str(SEGMENT_DIR / f"buffer_{camera.id}_%03d.mp4")
+    ]
+
+    while True:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        with open(PID_DIR / f"ffmpeg_{camera.id}.pid", "w+") as pid_f:
+            pid_f.write(str(process.pid))
+
+        logger.info(f"Запущен поток захвата видео для камеры {camera.name} по адресу {rtsp_url}")
+
+        # Параллельно логируем stdout и stderr
+        await asyncio.gather(
+            # log_stream(process.stdout, logger.info, camera.name),
+            log_stream(process.stderr, logger_ffmpeg.warning, camera.name),
+            process.wait()
+        )
+
+        logger.warning(f"FFmpeg завершил работу для камеры {camera.name}. Перезапуск через 5 секунд.")
+        await asyncio.sleep(5)
 
 
 async def get_video_resolution(video_path):
