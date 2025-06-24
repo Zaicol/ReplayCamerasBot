@@ -6,6 +6,7 @@ from pathlib import Path
 from aiogram import Dispatcher, Bot
 from dotenv import load_dotenv
 from pyotp import TOTP
+from requests.auth import HTTPDigestAuth
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -14,6 +15,8 @@ load_dotenv()
 API_TOKEN = os.getenv('CAMERA_API_TOKEN')
 DATABASE_URL = os.getenv('CAMERA_DATABASE_URL')
 STAND_VERSION = os.getenv('STAND_VERSION')  # тест или деплой
+
+SEND_CHANNEL = int(os.getenv('SEND_CHANNEL', '-1002654429486'))
 
 PID_DIR = Path("ffmpeg_pid")
 PID_DIR.mkdir(parents=True, exist_ok=True)
@@ -42,3 +45,10 @@ dp = Dispatcher()
 # В теории, эту строчку уже можно убрать, но на всякий случай я её оставил.
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
 
+
+# Настройки регистратора
+recorder_ip = os.getenv('RECORDER_IP')  # IP-адрес регистратора
+recorder_username = os.getenv('RECORDER_USERNAME')     # Имя пользователя
+recorder_password = os.getenv('RECORDER_PASSWORD')  # Пароль
+recorder_auth = HTTPDigestAuth(recorder_username, recorder_password)
+print(recorder_auth)

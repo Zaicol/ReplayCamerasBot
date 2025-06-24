@@ -4,9 +4,9 @@ import os
 from pyotp import TOTP
 from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
 from handlers import start_router, admin_router, user_router, default_router
-from config.config import bot, dp, totp_dict
+from config.config import bot, dp, totp_dict, recorder_ip, recorder_auth
 from utils import setup_logger
-from utils.cameras import start_buffer
+from utils.cameras import start_buffer, check_alarm
 
 # Настройка логгера
 logger = setup_logger()
@@ -39,6 +39,9 @@ async def main():
     # Создание TOTP объектов для всех кортов
     for court in courts:
         totp_dict[court.id] = TOTP(court.totp_secret, interval=3600, digits=4)
+
+    for i in range(1, 4):
+        asyncio.create_task(check_alarm(recorder_ip, recorder_auth, i, bot))
 
     # Запуск бота
     await dp.start_polling(bot)

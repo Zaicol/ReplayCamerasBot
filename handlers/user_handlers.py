@@ -11,7 +11,7 @@ from utils.states import SetupFSM
 from database import *
 from utils.texts import *
 
-from config.config import bot, totp_dict
+from config.config import bot, totp_dict, STAND_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,8 @@ async def process_input_password(message: types.Message, state: FSMContext):
 
 async def save_and_send_video(user: Users, message: types.Message) -> bool:
     await message.answer(saving_video_text)
-    video_file = await save_video(user, message)
+    camera_id = user.court.cameras[0].id if STAND_VERSION != "test" else -1
+    video_file = await save_video(user.id, camera_id, message)
 
     if video_file is None:
         await message.answer(error_text)
