@@ -6,7 +6,7 @@ from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, C
 from handlers import start_router, admin_router, user_router, default_router
 from config.config import bot, dp, totp_dict, recorder_ip, recorder_auth
 from utils import setup_logger
-from utils.cameras import start_buffer, check_alarm
+from utils.cameras import start_buffer, check_alarm_cycle
 
 # Настройка логгера
 logger = setup_logger()
@@ -40,8 +40,7 @@ async def main():
     for court in courts:
         totp_dict[court.id] = TOTP(court.totp_secret, interval=3600, digits=4)
 
-    for i in range(1, 4):
-        asyncio.create_task(check_alarm(recorder_ip, recorder_auth, i, bot))
+    asyncio.create_task(check_alarm_cycle(recorder_ip, recorder_auth, bot, 3))
 
     # Запуск бота
     await dp.start_polling(bot)

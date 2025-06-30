@@ -5,13 +5,13 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 import asyncio
+from time import sleep
 
 import aiohttp
 import pandas as pd
 import requests
 from aiogram.types import FSInputFile, Message
-from config.config import STAND_VERSION, SEGMENT_DIR, PID_DIR, SEGMENT_TIME, SEGMENT_WRAP, BUFFER_DURATION, SEND_CHANNEL
-from database.models import Users
+from config.config import SEGMENT_DIR, PID_DIR, SEGMENT_TIME, SEGMENT_WRAP, BUFFER_DURATION, SEND_CHANNEL, last_clusters
 from utils import setup_logger
 
 logger = logging.getLogger(__name__)
@@ -242,6 +242,11 @@ async def get_next_videos(session, ip, auth, object_id):
     return pd.DataFrame.from_dict(data, orient='index')
 
 
+async def destroy_find_object(ip, auth, object_id):
+    url = f"http://{ip}/cgi-bin/mediaFileFind.cgi?action=factory.destroy&object={object_id}"
+    requests.get(url, auth=auth)
+
+
 # --- Получение последнего события AlarmLocal ---
 async def get_latest_alarm_local_video(ip, auth, channel):
     end_time = datetime.now() + timedelta(minutes=5)
@@ -259,7 +264,7 @@ async def get_latest_alarm_local_video(ip, auth, channel):
             return None
 
         object_id = text.split("=")[-1].strip()
-        logger.debug(f"Channel: {channel}, Object ID: {object_id}")
+        logger.info(f"Channel: {channel}, Object ID: {object_id}")
 
         # 2. Инициация поиска
         start_find_url = (
@@ -294,27 +299,37 @@ async def get_latest_alarm_local_video(ip, auth, channel):
             latest_row = alarm_df.sort_values(by='Cluster', ascending=False).iloc[0]
             cluster = latest_row.get('Cluster', None)
             if cluster:
+                await destroy_find_object(ip, auth, object_id)
                 return cluster
+
+        await destroy_find_object(ip, auth, object_id)
+        return None
 
 
 # --- Цикл проверки тревог ---
 async def check_alarm(ip, auth, channel, bot):
-    last_cluster = None
+    last_cluster = last_clusters.get(channel, None)
+    cluster = await get_latest_alarm_local_video(ip, auth, channel)
+    try:
+        cluster = int(cluster) if cluster is not None else None
+    except (ValueError, TypeError):
+        logger.error(f"Канал {channel} - Ошибка парсинга кластера: {cluster}")
+        cluster = None
+
+    if cluster is not None and (last_cluster is None or cluster > last_cluster):
+        last_cluster = cluster
+        await bot.send_message(chat_id=289208255, text=f"Обнаружено событие в камере: {cluster} (канал {channel})")
+        await save_and_send_video_to_channel(channel, bot)
+
+    last_clusters[channel] = last_cluster
+    logger.info(f"Канал {channel} - Последний кластер: {last_cluster}")
+
+
+async def check_alarm_cycle(ip, auth, bot, channel_end):
     while True:
-        cluster = await get_latest_alarm_local_video(ip, auth, channel)
-        try:
-            cluster = int(cluster) if cluster is not None else None
-        except (ValueError, TypeError):
-            logger.error(f"Канал {channel} - Ошибка парсинга кластера: {cluster}")
-            cluster = None
-
-        if cluster is not None and (last_cluster is None or cluster > last_cluster):
-            last_cluster = cluster
-            await bot.send_message(chat_id=289208255, text=f"Обнаружено событие в камере: {cluster} (канал {channel})")
-            await save_and_send_video_to_channel(channel, bot)
-
-        logger.info(f"Канал {channel} - Последний кластер: {last_cluster}")
-        await asyncio.sleep(5)
+        for i in range(1, channel_end + 1):
+            await check_alarm(ip, auth, i, bot)
+        await asyncio.sleep(10)
 
 
 async def save_and_send_video_to_channel(camera_id, bot) -> bool:

@@ -52,3 +52,5 @@ recorder_username = os.getenv('RECORDER_USERNAME')     # Имя пользова
 recorder_password = os.getenv('RECORDER_PASSWORD')  # Пароль
 recorder_auth = HTTPDigestAuth(recorder_username, recorder_password)
 print(recorder_auth)
+
+last_clusters = {}
