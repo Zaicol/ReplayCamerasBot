@@ -18,6 +18,8 @@ from utils import setup_logger
 logger = logging.getLogger(__name__)
 logger_ffmpeg = setup_logger("ffmpeg")
 
+alarm_start_time: datetime | None = None
+
 
 async def check_rtsp_connection(camera, timeout: int = 5) -> bool:
     rtsp_url = (
@@ -253,6 +255,7 @@ async def destroy_find_object(ip, auth, object_id):
 
 # --- Получение последнего события AlarmLocal ---
 async def get_latest_alarm_local_video(ip, auth, channel):
+    global alarm_start_time
     end_time = datetime.now() + timedelta(minutes=5)
     start_time = end_time - timedelta(minutes=15)
     start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -287,6 +290,7 @@ async def get_latest_alarm_local_video(ip, auth, channel):
 
         # 3. Получение видео с событиями
         cluster = None
+        alarm_start_time = None
         while True:
             df = await get_next_videos(session, ip, auth, object_id)
             if df.empty:
@@ -303,6 +307,9 @@ async def get_latest_alarm_local_video(ip, auth, channel):
 
             latest_row = alarm_df.sort_values(by='Cluster', ascending=False).iloc[0]
             cluster = latest_row.get('Cluster', None)
+            alarm_start_time_str = latest_row.get('StartTime', None)
+            if alarm_start_time_str is not None:
+                alarm_start_time = datetime.strptime(alarm_start_time_str, "%Y-%m-%d %H:%M:%S")
             if cluster is not None:
                 logger.info(latest_row)
                 break
@@ -340,7 +347,9 @@ async def check_alarm_cycle(ip, auth, bot, channel_end):
 
 
 async def save_and_send_video_to_channel(camera_id, bot) -> bool:
-    video_file = await save_video(camera_id, camera_id, None, 60)
+    global alarm_start_time
+    offset = (datetime.now() - alarm_start_time).seconds if alarm_start_time is not None else 0
+    video_file = await save_video(camera_id, camera_id, None, offset)
 
     if video_file is None:
         bot.send_message(chat_id=289208255, text=f"Ошибка при сохранении видео по кнопке. Камера: {camera_id}")
