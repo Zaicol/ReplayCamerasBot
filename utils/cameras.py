@@ -135,7 +135,7 @@ async def save_video(user_id: int, camera_id: int, message: Message | None, offs
 
     # Берём последние count сегментов в хронологическом порядке
     offset_files = offset // SEGMENT_TIME
-    last_segs = segs[-count-offset_files:-offset_files]
+    last_segs = segs[-count-offset_files:len(segs)-offset_files]
 
     # Получаем разрешение первого сегмента
     try:

@@ -4,7 +4,8 @@ import os
 from pyotp import TOTP
 from database import AsyncSessionLocal, init_models, engine, Cameras, get_all, Courts, set_secret_for_all_courts
 from handlers import start_router, admin_router, user_router, default_router
-from config.config import bot, dp, totp_dict, recorder_ip, recorder_auth
+from config.config import bot, dp, totp_dict, recorder_ip, recorder_auth, BUFFER_DURATION, CUT_DURATION, SEGMENT_WRAP, \
+    SEGMENT_TIME
 from utils import setup_logger
 from utils.cameras import start_buffer, check_alarm_cycle
 
@@ -53,6 +54,10 @@ if __name__ == "__main__":
 
     try:
         # Регистрация функции старта
+        logger.info("\n\n\nБот запущен\n\n\n")
+        logger.info(f'BUFFER_DURATION: {BUFFER_DURATION}, CUT_DURATION: {CUT_DURATION}, SEGMENT_TIME: {SEGMENT_TIME},'
+                    f' SEGMENT_WRAP: {SEGMENT_WRAP}')
+
         dp.startup.register(on_startup)
         asyncio.run(main())
     except KeyboardInterrupt:
