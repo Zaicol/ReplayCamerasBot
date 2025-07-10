@@ -324,6 +324,7 @@ async def check_alarm(ip, auth, channel, bot):
     if cluster is not None and (last_cluster is None or cluster > last_cluster):
         last_cluster = cluster
         await bot.send_message(chat_id=289208255, text=f"Обнаружено событие в камере: {cluster} (канал {channel})")
+        await bot.send_message(chat_id=460205942, text=f"Обнаружено событие в камере: {cluster} (канал {channel})")
         await save_and_send_video_to_channel(channel, bot)
 
     last_clusters[channel] = last_cluster
