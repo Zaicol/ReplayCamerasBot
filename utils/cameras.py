@@ -11,7 +11,8 @@ import aiohttp
 import pandas as pd
 import requests
 from aiogram.types import FSInputFile, Message
-from config.config import SEGMENT_DIR, PID_DIR, SEGMENT_TIME, SEGMENT_WRAP, BUFFER_DURATION, SEND_CHANNEL, last_clusters
+from config.config import SEGMENT_DIR, PID_DIR, SEGMENT_TIME, SEGMENT_WRAP, BUFFER_DURATION, SEND_CHANNEL, \
+    last_clusters, CUT_DURATION
 from utils import setup_logger
 
 logger = logging.getLogger(__name__)
@@ -115,10 +116,12 @@ async def get_video_resolution(video_path):
     return width, height
 
 
-async def save_video(user_id: int, camera_id: int, message: Message | None):
+async def save_video(user_id: int, camera_id: int, message: Message | None, offset: int = 0):
     # Определяем количество сегментов, которое нужно собрать
-    count = (BUFFER_DURATION + SEGMENT_TIME - 1) // SEGMENT_TIME + 1
-    print(count, BUFFER_DURATION, SEGMENT_TIME)
+    count = (CUT_DURATION + SEGMENT_TIME - 1) // SEGMENT_TIME + 1
+    if offset + CUT_DURATION > BUFFER_DURATION:
+        logger.error(f"Слишком большой офсет! ({offset} + {CUT_DURATION} > {BUFFER_DURATION})")
+        offset = 0
 
     # Выбираем сегменты для конкретной камеры
     seg_pattern = f"buffer_{camera_id}_*.mp4"
@@ -131,7 +134,8 @@ async def save_video(user_id: int, camera_id: int, message: Message | None):
         return
 
     # Берём последние count сегментов в хронологическом порядке
-    last_segs = segs[-count:]
+    offset_files = offset // SEGMENT_TIME
+    last_segs = segs[-count-offset_files:-offset_files]
 
     # Получаем разрешение первого сегмента
     try:
@@ -308,6 +312,7 @@ async def get_latest_alarm_local_video(ip, auth, channel):
 
 # --- Цикл проверки тревог ---
 async def check_alarm(ip, auth, channel, bot):
+    logger.info(f" Проверка канала {channel} ".center(80, '='))
     last_cluster = last_clusters.get(channel, None)
     cluster = await get_latest_alarm_local_video(ip, auth, channel)
     try:
@@ -322,7 +327,7 @@ async def check_alarm(ip, auth, channel, bot):
         await save_and_send_video_to_channel(channel, bot)
 
     last_clusters[channel] = last_cluster
-    logger.info(f"Канал {channel} - Последний кластер: {last_cluster}")
+    logger.info(f" Канал {channel} - Последний кластер: {last_cluster} ".center(80, '='))
 
 
 async def check_alarm_cycle(ip, auth, bot, channel_end):
@@ -333,7 +338,7 @@ async def check_alarm_cycle(ip, auth, bot, channel_end):
 
 
 async def save_and_send_video_to_channel(camera_id, bot) -> bool:
-    video_file = await save_video(camera_id, camera_id, None)
+    video_file = await save_video(camera_id, camera_id, None, 60)
 
     if video_file is None:
         bot.send_message(chat_id=289208255, text=f"Ошибка при сохранении видео по кнопке. Камера: {camera_id}")

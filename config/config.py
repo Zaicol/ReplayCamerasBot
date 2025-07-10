@@ -22,6 +22,7 @@ PID_DIR = Path("ffmpeg_pid")
 PID_DIR.mkdir(parents=True, exist_ok=True)
 
 BUFFER_DURATION = int(os.getenv('CAMERA_BUFFER_DURATION', 60))
+CUT_DURATION = int(os.getenv('CAMERA_CUT_DURATION', BUFFER_DURATION))
 FPS = int(os.getenv('CAMERA_FPS', 25))
 SEGMENT_DIR = Path("segments")
 SEGMENT_DIR.mkdir(parents=True, exist_ok=True)
