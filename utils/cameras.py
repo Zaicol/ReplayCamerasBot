@@ -286,6 +286,7 @@ async def get_latest_alarm_local_video(ip, auth, channel):
             return None
 
         # 3. Получение видео с событиями
+        cluster = None
         while True:
             df = await get_next_videos(session, ip, auth, object_id)
             if df.empty:
@@ -302,12 +303,12 @@ async def get_latest_alarm_local_video(ip, auth, channel):
 
             latest_row = alarm_df.sort_values(by='Cluster', ascending=False).iloc[0]
             cluster = latest_row.get('Cluster', None)
-            if cluster:
-                await destroy_find_object(ip, auth, object_id)
-                return cluster
+            if cluster is not None:
+                logger.info(latest_row)
+                break
 
         await destroy_find_object(ip, auth, object_id)
-        return None
+        return cluster
 
 
 # --- Цикл проверки тревог ---
