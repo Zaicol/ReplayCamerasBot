@@ -1,18 +1,14 @@
+import re
 import json
 import logging
-import os
-import re
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import timedelta
 import asyncio
-from time import sleep
 
 import aiohttp
 import pandas as pd
 import requests
 from aiogram.types import FSInputFile, Message
-from config.config import SEGMENT_DIR, PID_DIR, SEGMENT_TIME, SEGMENT_WRAP, BUFFER_DURATION, SEND_CHANNEL, \
-    last_clusters, CUT_DURATION
+from config.config import *
 from utils import setup_logger
 
 logger = logging.getLogger(__name__)
@@ -354,8 +350,8 @@ async def save_and_send_video_to_channel(camera_id, bot) -> bool:
     if video_file is None:
         bot.send_message(chat_id=289208255, text=f"Ошибка при сохранении видео по кнопке. Камера: {camera_id}")
         return False
-    chan = SEND_CHANNEL
-    sent_message = await bot.send_video(chat_id=chan, video=video_file)
+    for chan in SEND_CHANNELS:
+        sent_message = await bot.send_video(chat_id=chan, video=video_file)
 
     # TODO: Добавить сохранение в БД
     # async with AsyncSessionLocal() as session:

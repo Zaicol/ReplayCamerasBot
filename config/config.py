@@ -16,7 +16,7 @@ API_TOKEN = os.getenv('CAMERA_API_TOKEN')
 DATABASE_URL = os.getenv('CAMERA_DATABASE_URL')
 STAND_VERSION = os.getenv('STAND_VERSION')  # тест или деплой
 
-SEND_CHANNEL = int(os.getenv('SEND_CHANNEL', '-1002654429486'))
+SEND_CHANNELS = list(map(int, os.getenv('SEND_CHANNELS', '-1002654429486').split(",")))
 
 PID_DIR = Path("ffmpeg_pid")
 PID_DIR.mkdir(parents=True, exist_ok=True)
